@@ -1,0 +1,397 @@
+/* =========================================================
+   RESIDENT PROFILE PAGE
+   ========================================================= */
+
+.resident-profile-page {
+    width: 100%;
+    min-height: 100%;
+    padding: 42px 48px 60px;
+    box-sizing: border-box;
+}
+
+
+/* =========================================================
+   HEADER
+   ========================================================= */
+
+.resident-profile-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 30px;
+    margin-bottom: 36px;
+}
+
+.resident-profile-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    color: #2563eb;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    margin-bottom: 14px;
+}
+
+.resident-profile-eyebrow span {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #2563eb;
+    box-shadow: 0 0 0 7px #e8efff;
+}
+
+.resident-profile-header h1 {
+    margin: 0;
+    color: #111827;
+    font-size: 52px;
+    line-height: 1.05;
+    font-weight: 800;
+    letter-spacing: -1.5px;
+}
+
+.resident-profile-header p {
+    margin: 14px 0 0;
+    color: #71809a;
+    font-size: 19px;
+}
+
+
+/* =========================================================
+   REFRESH BUTTON
+   ========================================================= */
+
+.resident-profile-refresh {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+
+    min-height: 48px;
+    padding: 0 20px;
+
+    border: 1px solid #d9e1ee;
+    border-radius: 14px;
+
+    background: #ffffff;
+    color: #61708a;
+
+    font-size: 16px;
+    font-weight: 700;
+
+    cursor: pointer;
+
+    transition:
+            background 0.2s ease,
+            border-color 0.2s ease,
+            transform 0.2s ease;
+}
+
+.resident-profile-refresh:hover {
+    background: #f8faff;
+    border-color: #c7d4e8;
+    transform: translateY(-1px);
+}
+
+
+/* =========================================================
+   CONTENT
+   ========================================================= */
+
+.resident-profile-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.8fr);
+    gap: 24px;
+    align-items: stretch;
+}
+
+
+/* =========================================================
+   PROFILE CARD
+   ========================================================= */
+
+.resident-profile-card {
+    background: #ffffff;
+    border: 1px solid #dce4ef;
+    border-radius: 22px;
+    overflow: hidden;
+    box-shadow: 0 8px 30px rgba(28, 48, 85, 0.04);
+}
+
+
+/* =========================================================
+   PROFILE CARD HEADER
+   ========================================================= */
+
+.resident-profile-card-header {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+
+    padding: 30px 32px;
+
+    border-bottom: 1px solid #e7edf5;
+}
+
+.resident-profile-avatar {
+    width: 72px;
+    height: 72px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    flex-shrink: 0;
+
+    border-radius: 20px;
+
+    background: #e9f0ff;
+    color: #2563eb;
+
+    font-size: 28px;
+    font-weight: 800;
+}
+
+.resident-profile-card-header h2 {
+    margin: 0 0 5px;
+
+    color: #182235;
+
+    font-size: 25px;
+    font-weight: 800;
+}
+
+.resident-profile-card-header span {
+    color: #8997ad;
+    font-size: 15px;
+}
+
+
+/* =========================================================
+   PROFILE SECTION
+   ========================================================= */
+
+.resident-profile-section {
+    padding: 30px 32px 34px;
+}
+
+.resident-profile-section-title {
+    display: flex;
+    align-items: flex-start;
+    gap: 13px;
+
+    margin-bottom: 28px;
+
+    color: #2563eb;
+}
+
+.resident-profile-section-title h3 {
+    margin: 0 0 4px;
+
+    color: #1d293b;
+
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.resident-profile-section-title p {
+    margin: 0;
+
+    color: #8997ad;
+
+    font-size: 14px;
+}
+
+
+/* =========================================================
+   PROFILE FIELDS
+   ========================================================= */
+
+.resident-profile-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.resident-profile-field {
+    padding: 19px;
+
+    border: 1px solid #e1e8f2;
+    border-radius: 15px;
+
+    background: #fafcff;
+}
+
+.resident-profile-field label {
+    display: block;
+
+    margin-bottom: 10px;
+
+    color: #8997ad;
+
+    font-size: 12px;
+    font-weight: 800;
+
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+}
+
+.resident-profile-field-value {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    color: #26344b;
+
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.resident-profile-field-value svg {
+    color: #2563eb;
+    flex-shrink: 0;
+}
+
+
+/* =========================================================
+   SECURITY CARD
+   ========================================================= */
+
+.resident-profile-security-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+
+    padding: 30px;
+
+    border: 1px solid #dce4ef;
+    border-radius: 22px;
+
+    background: #ffffff;
+
+    box-shadow: 0 8px 30px rgba(28, 48, 85, 0.04);
+}
+
+.resident-security-icon {
+    width: 62px;
+    height: 62px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    margin-bottom: 28px;
+
+    border-radius: 18px;
+
+    background: #eef3fb;
+    color: #71819b;
+}
+
+.resident-security-label {
+    display: block;
+
+    margin-bottom: 10px;
+
+    color: #2563eb;
+
+    font-size: 12px;
+    font-weight: 800;
+
+    letter-spacing: 1.5px;
+}
+
+.resident-profile-security-card h2 {
+    margin: 0 0 10px;
+
+    color: #26344b;
+
+    font-size: 21px;
+    line-height: 1.3;
+    font-weight: 800;
+}
+
+.resident-profile-security-card p {
+    margin: 0;
+
+    color: #8997ad;
+
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1000px) {
+
+    .resident-profile-content {
+        grid-template-columns: 1fr;
+    }
+
+}
+
+
+@media (max-width: 700px) {
+
+    .resident-profile-page {
+        padding: 30px 20px 45px;
+    }
+
+    .resident-profile-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .resident-profile-header h1 {
+        font-size: 40px;
+    }
+
+    .resident-profile-header p {
+        font-size: 16px;
+    }
+
+    .resident-profile-refresh {
+        align-self: flex-start;
+    }
+
+    .resident-profile-fields {
+        grid-template-columns: 1fr;
+    }
+
+    .resident-profile-card-header {
+        padding: 24px;
+    }
+
+    .resident-profile-section {
+        padding: 24px;
+    }
+
+    .resident-profile-security-card {
+        padding: 24px;
+    }
+
+}
+
+
+@media (max-width: 480px) {
+
+    .resident-profile-header h1 {
+        font-size: 34px;
+    }
+
+    .resident-profile-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 16px;
+        font-size: 24px;
+    }
+
+    .resident-profile-card-header h2 {
+        font-size: 21px;
+    }
+
+}

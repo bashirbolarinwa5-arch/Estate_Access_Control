@@ -1,0 +1,912 @@
+/* =========================================================
+   RESIDENT VISITORS PAGE
+   ========================================================= */
+
+.resident-visitors-page {
+    min-height: 100%;
+    padding: 48px 54px 70px;
+    background: #f6f8fc;
+    box-sizing: border-box;
+}
+
+
+/* =========================================================
+   HEADER
+   ========================================================= */
+
+.resident-visitors-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 30px;
+    margin-bottom: 38px;
+}
+
+.resident-page-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+
+    color: #2563eb;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 2px;
+}
+
+.resident-page-eyebrow span {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #2563eb;
+    box-shadow: 0 0 0 6px #e8efff;
+}
+
+.resident-visitors-header h1 {
+    margin: 0;
+    color: #111827;
+    font-size: 46px;
+    line-height: 1.1;
+    font-weight: 800;
+    letter-spacing: -1.5px;
+}
+
+.resident-visitors-header p {
+    margin: 12px 0 0;
+    color: #718096;
+    font-size: 18px;
+    line-height: 1.6;
+}
+
+
+/* =========================================================
+   HEADER ACTIONS
+   ========================================================= */
+
+.resident-visitors-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding-top: 2px;
+}
+
+.resident-refresh-button,
+.resident-add-button,
+.resident-empty-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+
+    height: 54px;
+    padding: 0 22px;
+
+    border-radius: 14px;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+
+    transition:
+            transform 0.18s ease,
+            box-shadow 0.18s ease,
+            background 0.18s ease;
+}
+
+.resident-refresh-button {
+    color: #64748b;
+    background: #ffffff;
+    border: 1px solid #dce3ee;
+}
+
+.resident-refresh-button:hover:not(:disabled) {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    transform: translateY(-1px);
+}
+
+.resident-refresh-button:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.resident-add-button,
+.resident-empty-button {
+    color: #ffffff;
+    background: #2563eb;
+    border: 1px solid #2563eb;
+    box-shadow: 0 8px 18px rgba(37, 99, 235, 0.18);
+}
+
+.resident-add-button:hover,
+.resident-empty-button:hover {
+    background: #1d4ed8;
+    box-shadow: 0 10px 22px rgba(37, 99, 235, 0.24);
+    transform: translateY(-1px);
+}
+
+
+/* =========================================================
+   ERROR
+   ========================================================= */
+
+.resident-visitors-error {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 25px;
+
+    margin-bottom: 28px;
+    padding: 20px 24px;
+
+    background: #fff7f7;
+    border: 1px solid #fecaca;
+    border-radius: 16px;
+}
+
+.resident-visitors-error > div {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.resident-visitors-error strong {
+    color: #991b1b;
+    font-size: 17px;
+}
+
+.resident-visitors-error span {
+    color: #b91c1c;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.resident-visitors-error button {
+    min-width: 120px;
+    padding: 12px 18px;
+
+    color: #ffffff;
+    background: #dc2626;
+    border: none;
+    border-radius: 12px;
+
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.resident-visitors-error button:hover {
+    background: #b91c1c;
+}
+
+
+/* =========================================================
+   SEARCH / TOOLBAR
+   ========================================================= */
+
+.resident-visitors-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 25px;
+    margin-bottom: 24px;
+}
+
+.resident-visitors-search {
+    width: min(560px, 100%);
+    height: 58px;
+
+    display: flex;
+    align-items: center;
+    gap: 13px;
+
+    padding: 0 17px;
+
+    background: #ffffff;
+    border: 1px solid #dce3ee;
+    border-radius: 15px;
+
+    box-sizing: border-box;
+    transition:
+            border-color 0.18s ease,
+            box-shadow 0.18s ease;
+}
+
+.resident-visitors-search:focus-within {
+    border-color: #7aa2f7;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
+}
+
+.resident-visitors-search > svg {
+    flex-shrink: 0;
+    color: #91a4bd;
+}
+
+.resident-visitors-search input {
+    flex: 1;
+    min-width: 0;
+
+    border: none;
+    outline: none;
+
+    color: #1e293b;
+    background: transparent;
+
+    font-family: inherit;
+    font-size: 15px;
+}
+
+.resident-visitors-search input::placeholder {
+    color: #9aabc1;
+}
+
+.resident-visitors-search button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 30px;
+    height: 30px;
+
+    color: #64748b;
+    background: #f1f5f9;
+    border: none;
+    border-radius: 50%;
+
+    cursor: pointer;
+}
+
+.resident-visitors-search button:hover {
+    background: #e2e8f0;
+}
+
+.resident-visitor-count {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+
+    color: #64748b;
+    font-size: 15px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.resident-visitor-count svg {
+    color: #64748b;
+}
+
+
+/* =========================================================
+   LOADING
+   ========================================================= */
+
+.resident-visitors-loading {
+    min-height: 380px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    background: #ffffff;
+    border: 1px solid #e1e7f0;
+    border-radius: 22px;
+
+    text-align: center;
+}
+
+.resident-loading-spinner {
+    width: 38px;
+    height: 38px;
+
+    margin-bottom: 18px;
+
+    border: 4px solid #e5edff;
+    border-top-color: #2563eb;
+    border-radius: 50%;
+
+    animation: residentSpin 0.8s linear infinite;
+}
+
+.resident-visitors-loading strong {
+    color: #1e293b;
+    font-size: 17px;
+}
+
+.resident-visitors-loading span {
+    margin-top: 6px;
+    color: #94a3b8;
+    font-size: 14px;
+}
+
+.resident-spin {
+    animation: residentSpin 0.8s linear infinite;
+}
+
+@keyframes residentSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+
+/* =========================================================
+   EMPTY STATE
+   ========================================================= */
+
+.resident-visitors-empty {
+    min-height: 390px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    padding: 40px;
+
+    background: #ffffff;
+    border: 1px solid #e1e7f0;
+    border-radius: 22px;
+
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.resident-empty-icon {
+    width: 76px;
+    height: 76px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    margin-bottom: 22px;
+
+    color: #2563eb;
+    background: #edf3ff;
+    border-radius: 22px;
+}
+
+.resident-visitors-empty h2 {
+    margin: 0;
+    color: #1e293b;
+    font-size: 23px;
+    font-weight: 800;
+}
+
+.resident-visitors-empty p {
+    max-width: 500px;
+    margin: 10px 0 24px;
+
+    color: #8492a6;
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+.resident-empty-button {
+    height: 48px;
+    padding: 0 19px;
+}
+
+
+/* =========================================================
+   VISITOR GRID
+   ========================================================= */
+
+.resident-visitors-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+}
+
+.resident-visitor-card {
+    padding: 23px;
+
+    background: #ffffff;
+    border: 1px solid #e1e7f0;
+    border-radius: 20px;
+
+    box-sizing: border-box;
+
+    transition:
+            transform 0.2s ease,
+            box-shadow 0.2s ease,
+            border-color 0.2s ease;
+}
+
+.resident-visitor-card:hover {
+    border-color: #cdd9ee;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.07);
+    transform: translateY(-2px);
+}
+
+.resident-visitor-card-top {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+
+    padding-bottom: 20px;
+    border-bottom: 1px solid #edf1f6;
+}
+
+.resident-visitor-avatar {
+    width: 52px;
+    height: 52px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    flex-shrink: 0;
+
+    color: #2563eb;
+    background: #eaf1ff;
+    border-radius: 16px;
+
+    font-size: 19px;
+    font-weight: 800;
+}
+
+.resident-visitor-title {
+    min-width: 0;
+}
+
+.resident-visitor-title h2 {
+    margin: 0;
+
+    color: #1e293b;
+    font-size: 17px;
+    font-weight: 800;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.resident-visitor-title span {
+    display: block;
+    margin-top: 4px;
+
+    color: #94a3b8;
+    font-size: 13px;
+}
+
+.resident-visitor-details {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+
+    padding-top: 20px;
+}
+
+.resident-visitor-detail {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.resident-detail-icon {
+    width: 36px;
+    height: 36px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    flex-shrink: 0;
+
+    color: #64748b;
+    background: #f3f6fa;
+    border-radius: 10px;
+}
+
+.resident-visitor-detail > div:last-child {
+    min-width: 0;
+}
+
+.resident-visitor-detail span {
+    display: block;
+
+    margin-bottom: 3px;
+
+    color: #94a3b8;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.resident-visitor-detail strong {
+    display: block;
+
+    color: #334155;
+    font-size: 14px;
+    font-weight: 600;
+
+    overflow-wrap: anywhere;
+}
+
+
+/* =========================================================
+   MODAL OVERLAY
+   ========================================================= */
+
+.resident-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 25px;
+
+    background: rgba(15, 23, 42, 0.54);
+    backdrop-filter: blur(4px);
+
+    box-sizing: border-box;
+}
+
+
+/* =========================================================
+   MODAL
+   ========================================================= */
+
+.resident-modal {
+    width: min(670px, 100%);
+    max-height: calc(100vh - 50px);
+
+    overflow-y: auto;
+
+    background: #ffffff;
+    border-radius: 24px;
+
+    box-shadow:
+            0 25px 70px rgba(15, 23, 42, 0.25);
+
+    animation: residentModalIn 0.2s ease-out;
+}
+
+@keyframes residentModalIn {
+    from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+
+/* =========================================================
+   MODAL HEADER
+   ========================================================= */
+
+.resident-modal-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+
+    padding: 27px 31px 23px;
+
+    border-bottom: 1px solid #e8edf4;
+}
+
+.resident-modal-header h2 {
+    margin: 0;
+
+    color: #172033;
+    font-size: 23px;
+    font-weight: 800;
+}
+
+.resident-modal-header p {
+    margin: 7px 0 0;
+
+    color: #94a3b8;
+    font-size: 14px;
+}
+
+.resident-modal-close {
+    width: 44px;
+    height: 44px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    flex-shrink: 0;
+
+    color: #64748b;
+    background: #f5f7fa;
+    border: none;
+    border-radius: 12px;
+
+    cursor: pointer;
+
+    transition:
+            background 0.18s ease,
+            color 0.18s ease;
+}
+
+.resident-modal-close:hover {
+    color: #1e293b;
+    background: #eaf0f7;
+}
+
+
+/* =========================================================
+   MODAL BODY
+   ========================================================= */
+
+.resident-modal-body {
+    padding: 30px 31px 31px;
+}
+
+
+/* =========================================================
+   VISITOR FORM
+   These styles also handle the form shown in your screenshot.
+   ========================================================= */
+
+.resident-modal-body form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.resident-modal-body label {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    color: #334155;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.resident-modal-body input,
+.resident-modal-body textarea,
+.resident-modal-body select {
+    width: 100%;
+    box-sizing: border-box;
+
+    padding: 13px 14px;
+
+    color: #1e293b;
+    background: #ffffff;
+
+    border: 1px solid #d9e1ec;
+    border-radius: 11px;
+
+    outline: none;
+
+    font-family: inherit;
+    font-size: 14px;
+
+    transition:
+            border-color 0.18s ease,
+            box-shadow 0.18s ease;
+}
+
+.resident-modal-body input {
+    height: 48px;
+}
+
+.resident-modal-body textarea {
+    min-height: 110px;
+    resize: vertical;
+}
+
+.resident-modal-body input::placeholder,
+.resident-modal-body textarea::placeholder {
+    color: #a2afc0;
+}
+
+.resident-modal-body input:focus,
+.resident-modal-body textarea:focus,
+.resident-modal-body select:focus {
+    border-color: #4f83ed;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
+}
+
+.resident-modal-body button[type="submit"],
+.resident-modal-body .register-visitor-button {
+    min-height: 48px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    padding: 0 20px;
+
+    color: #ffffff;
+    background: #2563eb;
+    border: none;
+    border-radius: 11px;
+
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+
+    cursor: pointer;
+
+    transition:
+            background 0.18s ease,
+            transform 0.18s ease;
+}
+
+.resident-modal-body button[type="submit"]:hover,
+.resident-modal-body .register-visitor-button:hover {
+    background: #1d4ed8;
+    transform: translateY(-1px);
+}
+
+.resident-modal-body button[type="button"] {
+    min-height: 48px;
+
+    padding: 0 19px;
+
+    color: #64748b;
+    background: #f8fafc;
+    border: 1px solid #dbe3ed;
+    border-radius: 11px;
+
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+
+    cursor: pointer;
+}
+
+.resident-modal-body button[type="button"]:hover {
+    background: #f1f5f9;
+}
+
+
+/* =========================================================
+   PLACEHOLDER
+   ========================================================= */
+
+.resident-modal-placeholder {
+    min-height: 210px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    padding: 30px;
+
+    color: #94a3b8;
+    background: #fbfcfe;
+
+    border: 1px dashed #cbd5e1;
+    border-radius: 18px;
+
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.resident-modal-placeholder svg {
+    margin-bottom: 14px;
+    color: #94a3b8;
+}
+
+.resident-modal-placeholder strong {
+    margin-bottom: 7px;
+
+    color: #334155;
+    font-size: 17px;
+}
+
+.resident-modal-placeholder span {
+    max-width: 430px;
+
+    color: #94a3b8;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1100px) {
+    .resident-visitors-page {
+        padding: 40px 35px 60px;
+    }
+
+    .resident-visitors-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 800px) {
+    .resident-visitors-page {
+        padding: 30px 22px 50px;
+    }
+
+    .resident-visitors-header {
+        flex-direction: column;
+    }
+
+    .resident-visitors-actions {
+        width: 100%;
+    }
+
+    .resident-refresh-button,
+    .resident-add-button {
+        flex: 1;
+    }
+
+    .resident-visitors-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .resident-visitors-search {
+        width: 100%;
+    }
+
+    .resident-visitor-count {
+        justify-content: flex-end;
+    }
+}
+
+@media (max-width: 600px) {
+    .resident-visitors-header h1 {
+        font-size: 36px;
+    }
+
+    .resident-visitors-header p {
+        font-size: 16px;
+    }
+
+    .resident-visitors-actions {
+        flex-direction: column;
+    }
+
+    .resident-refresh-button,
+    .resident-add-button {
+        width: 100%;
+        flex: none;
+    }
+
+    .resident-visitors-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .resident-visitors-error {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .resident-visitors-error button {
+        width: 100%;
+    }
+
+    .resident-modal-overlay {
+        padding: 12px;
+    }
+
+    .resident-modal {
+        max-height: calc(100vh - 24px);
+        border-radius: 19px;
+    }
+
+    .resident-modal-header {
+        padding: 22px 20px 18px;
+    }
+
+    .resident-modal-body {
+        padding: 22px 20px 24px;
+    }
+}

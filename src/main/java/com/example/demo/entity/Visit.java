@@ -22,7 +22,7 @@ public class Visit {
 
     private String purpose;
 
-    @Column(unique = true)
+    @Column(unique = true, nullable = false)
     private String accessCode;
 
     private LocalDate visitDate;
@@ -33,4 +33,5 @@ public class Visit {
 
     @Enumerated(EnumType.STRING)
     private VisitorStatus status;
+
 }
