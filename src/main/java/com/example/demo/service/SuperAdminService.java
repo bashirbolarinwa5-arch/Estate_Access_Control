@@ -8,6 +8,7 @@ import com.example.demo.repository.EstateRepository;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.repository.VisitRepository;
 import com.example.demo.repository.VisitorRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
@@ -22,18 +23,21 @@ public class SuperAdminService {
     private final VisitorRepository visitorRepository;
     private final EstateRepository estateRepository;
     private final ActivityLogService activityLogService;
+    private final PasswordEncoder passwordEncoder;
 
     public SuperAdminService(UserRepository userRepository,
                              VisitRepository visitRepository,
                              VisitorRepository visitorRepository,
                              EstateRepository estateRepository,
-                             ActivityLogService activityLogService) {
+                             ActivityLogService activityLogService,
+                             PasswordEncoder passwordEncoder) {
 
         this.userRepository = userRepository;
         this.visitRepository = visitRepository;
         this.visitorRepository = visitorRepository;
         this.estateRepository = estateRepository;
         this.activityLogService = activityLogService;
+        this.passwordEncoder = passwordEncoder;
     }
 
 
@@ -96,7 +100,7 @@ public class SuperAdminService {
 
         User admin = new User(
                 username.trim(),
-                password,
+                passwordEncoder.encode(password),
                 Role.ROLE_ADMIN
         );
 
@@ -184,7 +188,7 @@ public class SuperAdminService {
                     "Password must be at least 6 characters");
         }
 
-        admin.setPassword(newPassword);
+        admin.setPassword(passwordEncoder.encode(newPassword));
 
         User saved = userRepository.save(admin);
 
