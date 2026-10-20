@@ -173,6 +173,36 @@ VALUES ('admin', '$2a$10$<your-bcrypt-hash>', 'ROLE_ADMIN');
 
 ---
 
+## 🐳 Run with Docker
+
+The repo ships with a full Docker setup — **one command boots the database, the API and the web app together**:
+
+```bash
+cp .env.example .env      # then fill in DB_PASSWORD and JWT_SECRET
+docker compose up --build
+```
+
+| Service | URL | Notes |
+|---|---|---|
+| Web (React/nginx) | http://localhost:5173 | SPA routing configured, hashed assets cached |
+| API (Spring Boot) | http://localhost:8081 | runs as non-root, secrets injected at runtime |
+| PostgreSQL 16 | internal network only | data persisted in the `estateflow-db` volume |
+
+Files involved:
+
+| File | Purpose |
+|---|---|
+| `Dockerfile` | backend — multi-stage build (Maven → JRE), ~small runtime image |
+| `estateflow-frontend/Dockerfile` | frontend — `npm ci` + Vite build → served by **nginx** with SPA fallback |
+| `docker-compose.yml` | wires db + api + web; passes secrets from `.env`; waits for Postgres health |
+| `.env.example` | template for the two required secrets |
+
+Notes:
+- The API URL for the browser defaults to `http://localhost:8081`. Deploying the web build elsewhere? Pass `--build-arg VITE_API_BASE_URL=https://api.your-domain.com` (Vite inlines it at build time).
+- `CORS_ALLOWED_ORIGINS` must include the origin users browse from, e.g. `http://localhost:5173`.
+
+---
+
 ## 🔒 Security Model
 
 - **Stateless JWT authentication** — every protected request carries a Bearer token; expired tokens are rejected and the frontend redirects to login.

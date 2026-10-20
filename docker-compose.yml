@@ -1,0 +1,66 @@
+# =============================================================
+#  EstateFlow — one command for the whole stack:
+#
+#    1. cp .env.example .env        (then edit the values)
+#    2. docker compose up --build
+#
+#    Web:    http://localhost:5173
+#    API:    http://localhost:8081
+#
+#  Requires: DB_PASSWORD and JWT_SECRET in .env
+#  (JWT_SECRET: generate with  openssl rand -base64 64 )
+# =============================================================
+
+services:
+
+  # ---------- PostgreSQL ----------
+  db:
+    image: postgres:16-alpine
+    container_name: estateflow-db
+    environment:
+      POSTGRES_DB: estateflow
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    volumes:
+      - estateflow-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d estateflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    # Not published to the host by default — the backend talks
+    # to it over the internal network. Uncomment if you need
+    # a local psql connection:
+    # ports:
+    #   - "5432:5432"
+
+  # ---------- Spring Boot API ----------
+  backend:
+    build: .
+    container_name: estateflow-api
+    environment:
+      # Inside the compose network the database is the host
+      # name "db" — this overrides application.properties.
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/estateflow
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+    ports:
+      - "8081:8081"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ---------- React app (nginx) ----------
+  frontend:
+    build: ./estateflow-frontend
+    container_name: estateflow-web
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  estateflow-db:

@@ -1,0 +1,14 @@
+# Never bake secrets into the image
+.env
+
+# VCS / IDE / docs — not needed to build
+.git
+.idea
+docs/
+*.md
+
+# Build outputs
+target/
+
+# The frontend is its own Docker build context
+estateflow-frontend/
