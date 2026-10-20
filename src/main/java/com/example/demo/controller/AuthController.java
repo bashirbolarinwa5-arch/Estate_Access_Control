@@ -6,6 +6,7 @@ import com.example.demo.response.RegisterRequest;
 import com.example.demo.response.RegisterResponse;
 import com.example.demo.service.AuthService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import com.example.demo.response.LoginResponse;
@@ -22,12 +23,14 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<RegisterResponse> register(
+            Authentication authentication,
             @RequestBody RegisterRequest request) {
 
         User user = authService.register(
                 request.getUsername(),
                 request.getPassword(),
-                request.getRole()
+                request.getRole(),
+                authentication
         );
 
         RegisterResponse response = new RegisterResponse(

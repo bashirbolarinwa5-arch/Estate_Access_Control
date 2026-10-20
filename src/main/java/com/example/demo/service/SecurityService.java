@@ -73,7 +73,7 @@ public class SecurityService {
                 Role.ROLE_SECURITY
         );
 
-        userRepository.save(user);
+        User savedUser = userRepository.save(user);
 
         /*
          * We deliberately do NOT use
@@ -82,6 +82,8 @@ public class SecurityService {
          * Authentication belongs to User.
          */
         security.setPassword(null);
+
+        security.setUser(savedUser);
 
         return securityRepository.save(security);
     }
@@ -143,14 +145,26 @@ public class SecurityService {
     // DELETE SECURITY
     public void deleteSecurity(Long id) {
 
-        if (!securityRepository.existsById(id)) {
+        Security securityPerson =
+                securityRepository.findById(id)
+                        .orElseThrow(
+                                () -> new RuntimeException(
+                                        "security not found"
+                                )
+                        );
 
-            throw new RuntimeException(
-                    "security not found"
-            );
+        User user = securityPerson.getUser();
+
+        securityRepository.delete(securityPerson);
+
+        /*
+         * Remove the login account as well so a
+         * deleted security person can no longer
+         * authenticate.
+         */
+        if (user != null) {
+            userRepository.delete(user);
         }
-
-        securityRepository.deleteById(id);
     }
 
     // CHECK IN VISITOR

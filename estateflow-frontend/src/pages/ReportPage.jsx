@@ -75,7 +75,62 @@ function ReportsPage() {
     }
 
     useEffect(() => {
-        loadReports();
+        let active = true;
+
+        async function loadInitialReports() {
+            try {
+                const [
+                    todayResponse,
+                    insideResponse,
+                    visitsResponse,
+                ] = await Promise.all([
+                    api.get("/api/reports/today"),
+                    api.get("/api/reports/currently-inside"),
+                    api.get("/api/reports/visits"),
+                ]);
+
+                if (!active) {
+                    return;
+                }
+
+                const extractData = (response) => {
+                    const data = response.data;
+
+                    if (Array.isArray(data)) {
+                        return data;
+                    }
+
+                    if (Array.isArray(data?.data)) {
+                        return data.data;
+                    }
+
+                    return [];
+                };
+
+                setTodayVisits(extractData(todayResponse));
+                setCurrentlyInside(extractData(insideResponse));
+                setAllVisits(extractData(visitsResponse));
+            } catch (err) {
+                console.error("Failed to load reports:", err);
+
+                if (active) {
+                    setError(
+                        err.response?.data?.message ||
+                        "Failed to load reports."
+                    );
+                }
+            } finally {
+                if (active) {
+                    setLoading(false);
+                }
+            }
+        }
+
+        loadInitialReports();
+
+        return () => {
+            active = false;
+        };
     }, []);
 
     function getActiveData() {

@@ -14,8 +14,20 @@ import {
 } from "lucide-react";
 
 import api from "../services/api";
+import { useAuth } from "../context/useAuth";
 
 function VisitsPage() {
+    const { user } = useAuth();
+    const isSecurity = user?.role === "ROLE_SECURITY";
+
+    /*
+     * Security registers walk-in visits only, so this role
+     * gets the same terminology as the Security module.
+     */
+    const createVisitLabel =
+        isSecurity
+            ? "Create Walk-In Visit"
+            : "Create Visit";
     const [visits, setVisits] = useState([]);
     const [residents, setResidents] = useState([]);
     const [visitors, setVisitors] = useState([]);
@@ -119,7 +131,44 @@ function VisitsPage() {
     }
 
     useEffect(() => {
-        loadVisits();
+        let active = true;
+
+        async function loadInitialVisits() {
+            try {
+                const response = await api.get("/visit");
+
+                const data = response.data;
+
+                if (active) {
+                    setVisits(
+                        Array.isArray(data)
+                            ? data
+                            : Array.isArray(data?.data)
+                                ? data.data
+                                : []
+                    );
+                }
+            } catch (err) {
+                console.error("Failed to load visits:", err);
+
+                if (active) {
+                    setError(
+                        err.response?.data?.message ||
+                        "Failed to load visits."
+                    );
+                }
+            } finally {
+                if (active) {
+                    setLoading(false);
+                }
+            }
+        }
+
+        loadInitialVisits();
+
+        return () => {
+            active = false;
+        };
     }, []);
 
     function openCreateModal() {
@@ -426,9 +475,6 @@ function VisitsPage() {
         (visit) => visit.status === "CHECKED_IN"
     ).length;
 
-    const checkedOutCount = visits.filter(
-        (visit) => visit.status === "CHECKED_OUT"
-    ).length;
 
     return (
         <div className="visits-page">
@@ -998,6 +1044,24 @@ function VisitsPage() {
                     white-space: nowrap;
                 }
 
+                /*
+                 * Security cannot approve or reject visits,
+                 * so pending rows only show this text badge.
+                 */
+                .visit-pending-note {
+                    display: inline-flex;
+                    align-items: center;
+                    height: 30px;
+                    padding: 0 12px;
+                    border-radius: 999px;
+                    background: #fffbeb;
+                    border: 1px solid #fde68a;
+                    color: #b45309;
+                    font-size: 11px;
+                    font-weight: 800;
+                    white-space: nowrap;
+                }
+
                 .visit-empty {
                     min-height: 310px;
                     display: flex;
@@ -1294,7 +1358,7 @@ function VisitsPage() {
                         onClick={openCreateModal}
                     >
                         <Plus size={17} />
-                        Create Visit
+                        {createVisitLabel}
                     </button>
 
                 </div>
@@ -1642,7 +1706,19 @@ function VisitsPage() {
                                         <td>
 
                                             {visit.status ===
-                                                "PENDING" && (
+                                                "PENDING" && isSecurity && (
+
+                                                    <span className="visit-pending-note">
+
+                                                        Awaiting Resident
+                                                        Approval
+
+                                                    </span>
+
+                                                )}
+
+                                            {visit.status ===
+                                                "PENDING" && !isSecurity && (
 
                                                     <div className="visit-actions">
 
@@ -1852,7 +1928,7 @@ function VisitsPage() {
                             <div>
 
                                 <h2>
-                                    Create Visit
+                                    {createVisitLabel}
                                 </h2>
 
                                 <p>
@@ -2017,7 +2093,7 @@ function VisitsPage() {
                                 >
                                     {creating
                                         ? "Creating..."
-                                        : "Create Visit"}
+                                        : createVisitLabel}
                                 </button>
 
                             </div>

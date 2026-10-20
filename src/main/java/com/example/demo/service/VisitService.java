@@ -131,8 +131,9 @@ public class VisitService {
                         new RuntimeException("Resident not found"));
 
         Visitor existingVisitor =
-                visitorRepository.findByPhoneNumber(
-                        visitor.getPhoneNumber());
+                visitorRepository.findByPhoneNumberAndResident(
+                        visitor.getPhoneNumber(),
+                        resident);
 
         if (existingVisitor == null) {
 
@@ -140,6 +141,8 @@ public class VisitService {
 
             existingVisitor.setFullName(visitor.getFullName());
             existingVisitor.setPhoneNumber(visitor.getPhoneNumber());
+            existingVisitor.setPurpose(purpose);
+            existingVisitor.setResident(resident);
 
             existingVisitor =
                     visitorRepository.save(existingVisitor);
@@ -295,7 +298,7 @@ public class VisitService {
     // APPROVE VISIT
     // ==============================
 
-    public Visit approveVisit(Long id) {
+    public Visit approveVisit(Long id, String actorRole) {
 
         Visit visit = visitRepository.findById(id)
                 .orElseThrow(() ->
@@ -313,7 +316,7 @@ public class VisitService {
                 visitRepository.save(visit);
 
         activityLogService.log(
-                "RESIDENT",
+                actorRole,
                 "VISIT_APPROVED",
                 "Visit " + visit.getId()
                         + " was approved"
@@ -326,7 +329,7 @@ public class VisitService {
     // REJECT VISIT
     // ==============================
 
-    public Visit rejectVisit(Long id) {
+    public Visit rejectVisit(Long id, String actorRole) {
 
         Visit visit = visitRepository.findById(id)
                 .orElseThrow(() ->
@@ -344,7 +347,7 @@ public class VisitService {
                 visitRepository.save(visit);
 
         activityLogService.log(
-                "RESIDENT",
+                actorRole,
                 "VISIT_REJECTED",
                 "Visit " + visit.getId()
                         + " was rejected"

@@ -15,4 +15,14 @@ public class Security {
     private String password;
     private String email;
 
+    /*
+     * The login account that belongs to this
+     * security person. Kept so that deleting the
+     * security record also revokes access.
+     */
+    @OneToOne
+    @JoinColumn(name = "user_id", unique = true)
+    @JsonIgnore
+    private User user;
+
 }

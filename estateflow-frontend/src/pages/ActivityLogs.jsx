@@ -53,7 +53,46 @@ function ActivityLogs() {
     }
 
     useEffect(() => {
-        loadLogs();
+        let active = true;
+
+        async function loadInitialLogs() {
+            try {
+                const response = await api.get("/api/activity-logs");
+
+                const data = response.data;
+
+                const logList = Array.isArray(data)
+                    ? data
+                    : Array.isArray(data?.data)
+                        ? data.data
+                        : [];
+
+                if (active) {
+                    setLogs(logList);
+                }
+            } catch (err) {
+                console.error("Failed to load activity logs:", err);
+
+                if (active) {
+                    setError(
+                        err.response?.data?.message ||
+                        "Failed to load activity logs."
+                    );
+
+                    setLogs([]);
+                }
+            } finally {
+                if (active) {
+                    setLoading(false);
+                }
+            }
+        }
+
+        loadInitialLogs();
+
+        return () => {
+            active = false;
+        };
     }, []);
 
     const filteredLogs = useMemo(() => {

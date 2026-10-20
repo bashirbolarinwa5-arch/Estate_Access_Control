@@ -4,6 +4,7 @@ import com.example.demo.entity.Role;
 import com.example.demo.entity.User;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.security.JwtService;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import com.example.demo.response.LoginResponse;
@@ -23,7 +24,38 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
     }
-    public User register(String username, String password, Role role) {
+    /*
+     * Public signup may only ever create a RESIDENT.
+     *
+     * ADMIN and SECURITY accounts must be created by a
+     * caller who is already an authenticated ADMIN.
+     */
+    public User register(
+            String username,
+            String password,
+            Role requestedRole,
+            Authentication authentication) {
+
+        Role role =
+                requestedRole == null
+                        ? Role.ROLE_RESIDENT
+                        : requestedRole;
+
+        if (role != Role.ROLE_RESIDENT) {
+            boolean callerIsAdmin = authentication != null
+                    && authentication.isAuthenticated()
+                    && authentication.getAuthorities()
+                            .stream()
+                            .anyMatch(authority ->
+                                    "ROLE_ADMIN".equals(
+                                            authority.getAuthority()));
+
+            if (!callerIsAdmin) {
+                throw new RuntimeException(
+                        "Only an administrator can create admin or security accounts"
+                );
+            }
+        }
 
         if (userRepository.existsByUsername(username)) {
             throw new RuntimeException("Username already exists");

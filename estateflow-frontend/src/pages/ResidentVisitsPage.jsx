@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
     CalendarDays,
     CheckCircle2,
@@ -94,7 +94,38 @@ const ResidentVisitsPage = () => {
     };
 
     useEffect(() => {
-        loadVisits();
+        let active = true;
+
+        async function loadInitialVisits() {
+            try {
+                const response = await API.get("/visit/me");
+
+                const result = response.data?.data;
+
+                if (active) {
+                    setVisits(Array.isArray(result) ? result : []);
+                }
+            } catch (err) {
+                console.error("Failed to load your visits:", err);
+
+                if (active) {
+                    setError(
+                        err.response?.data?.message ||
+                        "Failed to load your visits."
+                    );
+                }
+            } finally {
+                if (active) {
+                    setLoading(false);
+                }
+            }
+        }
+
+        loadInitialVisits();
+
+        return () => {
+            active = false;
+        };
     }, []);
 
     const openCreateModal = async () => {

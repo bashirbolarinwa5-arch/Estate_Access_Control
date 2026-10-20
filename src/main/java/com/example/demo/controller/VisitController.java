@@ -160,33 +160,58 @@ public class VisitController {
     }
 
     // ==============================
-    // APPROVE VISIT
+    // APPROVE VISIT (ADMIN ONLY)
     // ==============================
 
     @PutMapping("/approve/{id}")
     public ApiResponse<Visit> approveVisit(
-            @PathVariable Long id) {
+            @PathVariable Long id,
+            Authentication authentication) {
 
         return new ApiResponse<>(
                 true,
                 "Visit approved successfully",
-                service.approveVisit(id)
+                service.approveVisit(
+                        id,
+                        actorRole(authentication)
+                )
         );
     }
 
     // ==============================
-    // REJECT VISIT
+    // REJECT VISIT (ADMIN ONLY)
     // ==============================
 
     @PutMapping("/reject/{id}")
     public ApiResponse<Visit> rejectVisit(
-            @PathVariable Long id) {
+            @PathVariable Long id,
+            Authentication authentication) {
 
         return new ApiResponse<>(
                 true,
                 "Visit rejected successfully",
-                service.rejectVisit(id)
+                service.rejectVisit(
+                        id,
+                        actorRole(authentication)
+                )
         );
+    }
+
+    /*
+     * The gate (or an admin) acts on pending visits, so the
+     * activity log should record who actually did it instead
+     * of a hardcoded role.
+     */
+    private String actorRole(Authentication authentication) {
+
+        boolean isAdmin = authentication != null
+                && authentication.getAuthorities()
+                        .stream()
+                        .anyMatch(authority ->
+                                "ROLE_ADMIN".equals(
+                                        authority.getAuthority()));
+
+        return isAdmin ? "ADMIN" : "SECURITY";
     }
 
     // ==============================

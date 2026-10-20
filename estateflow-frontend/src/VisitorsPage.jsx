@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
     Search,
     Plus,
@@ -44,8 +44,61 @@ export default function VisitorsPage() {
     });
 
     useEffect(() => {
-        loadVisitors();
-        loadResidents();
+        let active = true;
+
+        async function loadInitialData() {
+            try {
+                const [visitorResponse, residentResponse] = await Promise.all([
+                    api.get("/visitor"),
+                    api.get("/resident"),
+                ]);
+
+                if (!active) {
+                    return;
+                }
+
+                const visitorData = visitorResponse.data;
+                const residentData = residentResponse.data;
+
+                setVisitors(
+                    Array.isArray(visitorData)
+                        ? visitorData
+                        : Array.isArray(visitorData?.data)
+                            ? visitorData.data
+                            : []
+                );
+
+                setResidents(
+                    Array.isArray(residentData)
+                        ? residentData
+                        : Array.isArray(residentData?.data)
+                            ? residentData.data
+                            : []
+                );
+            } catch (err) {
+                console.error("Failed to load visitors:", err);
+
+                if (active) {
+                    setError(
+                        err.response?.data?.message ||
+                        `Unable to load visitors. Status: ${
+                            err.response?.status || "unknown"
+                        }`
+                    );
+                }
+            } finally {
+                if (active) {
+                    setLoading(false);
+                    setLoadingResidents(false);
+                }
+            }
+        }
+
+        loadInitialData();
+
+        return () => {
+            active = false;
+        };
     }, []);
 
     async function loadVisitors() {
@@ -126,6 +179,10 @@ export default function VisitorsPage() {
         setError("");
         setSuccess("");
         setMenuId(null);
+
+        // Refresh residents so a newly added resident can be selected.
+        loadResidents();
+
         setShowModal(true);
     }
 

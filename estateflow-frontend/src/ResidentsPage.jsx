@@ -15,7 +15,9 @@ import {
     X,
 } from "lucide-react";
 
-const API_BASE_URL = "http://localhost:8081";
+const API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL ||
+    "http://localhost:8081";
 
 const emptyForm = {
     fullName: "",
@@ -128,7 +130,32 @@ export default function ResidentsPage() {
     }
 
     useEffect(() => {
-        loadResidents();
+        let active = true;
+
+        async function loadInitialResidents() {
+            try {
+                const response = await apiRequest("/resident");
+                const data = getData(response);
+
+                if (active) {
+                    setResidents(Array.isArray(data) ? data : []);
+                }
+            } catch (err) {
+                if (active) {
+                    setError(err.message || "Unable to load residents.");
+                }
+            } finally {
+                if (active) {
+                    setLoading(false);
+                }
+            }
+        }
+
+        loadInitialResidents();
+
+        return () => {
+            active = false;
+        };
     }, []);
 
     const filteredResidents = useMemo(() => {

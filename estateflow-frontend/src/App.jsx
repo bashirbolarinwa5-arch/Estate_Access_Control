@@ -2,7 +2,6 @@ import { useState } from "react";
 
 import {
     Bell,
-    Building2,
     CalendarDays,
     ClipboardList,
     Home,
@@ -18,6 +17,7 @@ import {
     Routes,
     Route,
     Navigate,
+    useLocation,
     useNavigate,
 } from "react-router-dom";
 
@@ -34,7 +34,7 @@ import ActivityLogs from "./pages/ActivityLogs.jsx";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 
-import { useAuth } from "./context/AuthContext";
+import { useAuth } from "./context/useAuth";
 
 import ResidentProfilePage from "./pages/ResidentProfilePage";
 import ResidentVisitorsPage from "./pages/ResidentVisitorsPage";
@@ -46,13 +46,17 @@ import ResidentVisitsPage from "./pages/ResidentVisitsPage";
    ========================================================= */
 
 function Sidebar({
-                     activePage,
-                     setActivePage,
                      mobile = false,
                      closeMobileMenu,
                  }) {
 
     const navigate = useNavigate();
+
+    // The active menu item derives from the URL, not from
+    // click state, so navigating from another page (dashboard
+    // cards, Create Walk-in Visit, redirects) still highlights
+    // the correct module.
+    const location = useLocation();
 
     const { user, logout } = useAuth();
 
@@ -210,8 +214,6 @@ function Sidebar({
 
     function handleNavigation(item) {
 
-        setActivePage(item.name);
-
         navigate(item.path);
 
         if (
@@ -304,7 +306,7 @@ function Sidebar({
                         key={item.name}
                         type="button"
                         className={`nav-item ${
-                            activePage === item.name
+                            location.pathname === item.path
                                 ? "active"
                                 : ""
                         }`}
@@ -494,10 +496,6 @@ function MainLayout() {
         role === "ROLE_RESIDENT";
 
 
-    const [activePage, setActivePage] =
-        useState("Dashboard");
-
-
     const [mobileMenu, setMobileMenu] =
         useState(false);
 
@@ -611,10 +609,6 @@ function MainLayout() {
             >
 
                 <Sidebar
-                    activePage={activePage}
-                    setActivePage={
-                        setActivePage
-                    }
                     mobile={true}
                     closeMobileMenu={() =>
                         setMobileMenu(false)
@@ -630,12 +624,7 @@ function MainLayout() {
 
             <div className="desktop-sidebar">
 
-                <Sidebar
-                    activePage={activePage}
-                    setActivePage={
-                        setActivePage
-                    }
-                />
+                <Sidebar />
 
             </div>
 
@@ -874,45 +863,6 @@ function MainLayout() {
                 </div>
 
             </main>
-
-        </div>
-    );
-}
-
-
-/* =========================================================
-   COMING SOON PAGE
-   ========================================================= */
-
-function ComingSoonPage({
-                            title,
-                        }) {
-
-    return (
-
-        <div className="coming-soon">
-
-            <div className="coming-icon">
-
-                <Building2 size={30} />
-
-            </div>
-
-
-            <div className="eyebrow">
-                ESTATEFLOW
-            </div>
-
-
-            <h1>
-                {title}
-            </h1>
-
-
-            <p>
-                This module is being connected
-                to the EstateFlow backend.
-            </p>
 
         </div>
     );

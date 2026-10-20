@@ -1,7 +1,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import ResidentDashboard from "./ResidentDashboard";
 
 import {
@@ -16,9 +16,6 @@ import {
     RefreshCw,
     ShieldCheck,
     Shield,
-    AlertCircle,
-    CheckCircle2,
-    Timer,
 } from "lucide-react";
 
 import "./Dashboard.css";
@@ -114,7 +111,66 @@ function AdminDashboard() {
     };
 
     useEffect(() => {
-        loadDashboard();
+        let active = true;
+
+        async function loadInitialDashboard() {
+            try {
+                const [
+                    residentResponse,
+                    visitorResponse,
+                    visitResponse,
+                ] = await Promise.all([
+                    api.get("/resident"),
+                    api.get("/visitor"),
+                    api.get("/visit"),
+                ]);
+
+                if (!active) {
+                    return;
+                }
+
+                const getData = (response) => {
+                    const data = response.data;
+
+                    if (Array.isArray(data)) {
+                        return data;
+                    }
+
+                    if (Array.isArray(data?.data)) {
+                        return data.data;
+                    }
+
+                    return [];
+                };
+
+                setResidents(getData(residentResponse));
+                setVisitors(getData(visitorResponse));
+                setVisits(getData(visitResponse));
+            } catch (err) {
+                console.error(
+                    "Failed to load dashboard:",
+                    err
+                );
+
+                if (active) {
+                    setError(
+                        err.response?.data?.message ||
+                        err.message ||
+                        "Something went wrong while loading the dashboard."
+                    );
+                }
+            } finally {
+                if (active) {
+                    setLoading(false);
+                }
+            }
+        }
+
+        loadInitialDashboard();
+
+        return () => {
+            active = false;
+        };
     }, []);
 
     const today =
@@ -498,7 +554,63 @@ function SecurityDashboard() {
     };
 
     useEffect(() => {
-        loadSecurityDashboard();
+        let active = true;
+
+        async function loadInitialDashboard() {
+            try {
+                const [
+                    visitorResponse,
+                    visitResponse,
+                ] = await Promise.all([
+                    api.get("/visitor"),
+                    api.get("/visit"),
+                ]);
+
+                if (!active) {
+                    return;
+                }
+
+                const getData = (response) => {
+                    const data = response.data;
+
+                    if (Array.isArray(data)) {
+                        return data;
+                    }
+
+                    if (Array.isArray(data?.data)) {
+                        return data.data;
+                    }
+
+                    return [];
+                };
+
+                setVisitors(getData(visitorResponse));
+                setVisits(getData(visitResponse));
+            } catch (err) {
+                console.error(
+                    "Failed to load security dashboard:",
+                    err
+                );
+
+                if (active) {
+                    setError(
+                        err.response?.data?.message ||
+                        err.message ||
+                        "Unable to load security dashboard."
+                    );
+                }
+            } finally {
+                if (active) {
+                    setLoading(false);
+                }
+            }
+        }
+
+        loadInitialDashboard();
+
+        return () => {
+            active = false;
+        };
     }, []);
 
     const today =

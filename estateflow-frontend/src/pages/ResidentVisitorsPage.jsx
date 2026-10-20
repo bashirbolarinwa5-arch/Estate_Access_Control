@@ -74,7 +74,39 @@ function ResidentVisitorsPage() {
     };
 
     useEffect(() => {
-        loadVisitors();
+        let active = true;
+
+        async function loadInitialVisitors() {
+            try {
+                const response = await API.get("/visitor/me");
+
+                const result = response.data?.data;
+
+                if (active) {
+                    setVisitors(Array.isArray(result) ? result : []);
+                }
+            } catch (err) {
+                console.error("Failed to load resident visitors:", err);
+
+                if (active) {
+                    setError(
+                        err.response?.data?.message ||
+                        "Failed to load your visitors."
+                    );
+                }
+            } finally {
+                if (active) {
+                    setLoading(false);
+                    setRefreshing(false);
+                }
+            }
+        }
+
+        loadInitialVisitors();
+
+        return () => {
+            active = false;
+        };
     }, []);
 
     const filteredVisitors = visitors.filter((visitor) => {

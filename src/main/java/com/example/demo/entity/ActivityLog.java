@@ -20,4 +20,5 @@ public class ActivityLog {
     private String description;
 
     private LocalDateTime timestamp;
+
 }
