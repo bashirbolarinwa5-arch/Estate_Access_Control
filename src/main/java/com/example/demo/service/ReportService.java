@@ -1,5 +1,6 @@
 package com.example.demo.service;
 
+import com.example.demo.entity.Estate;
 import com.example.demo.entity.Visit;
 import com.example.demo.entity.VisitorStatus;
 import com.example.demo.repository.VisitRepository;
@@ -12,30 +13,43 @@ import java.util.List;
 public class ReportService {
 
     private final VisitRepository visitRepository;
+    private final CurrentUserService currentUserService;
 
-    public ReportService(VisitRepository visitRepository) {
+    public ReportService(
+            VisitRepository visitRepository,
+            CurrentUserService currentUserService) {
         this.visitRepository = visitRepository;
+        this.currentUserService = currentUserService;
     }
 
     // TODAY'S VISITS
     public List<Visit> getTodayVisits() {
 
         LocalDate today = LocalDate.now();
+        Estate estate =
+                currentUserService.getRequiredEstate();
 
-        return visitRepository.findByVisitDate(today);
+        return visitRepository.findByVisitDateAndEstate(today, estate);
     }
 
     // VISITORS CURRENTLY INSIDE
     public List<Visit> getCurrentlyInside() {
 
-        return visitRepository.findByStatus(
-                VisitorStatus.CHECKED_IN
+        Estate estate =
+                currentUserService.getRequiredEstate();
+
+        return visitRepository.findByStatusAndEstate(
+                VisitorStatus.CHECKED_IN,
+                estate
         );
     }
 
     // ALL VISITS
     public List<Visit> getAllVisits() {
 
-        return visitRepository.findAll();
+        Estate estate =
+                currentUserService.getRequiredEstate();
+
+        return visitRepository.findByEstate(estate);
     }
 }

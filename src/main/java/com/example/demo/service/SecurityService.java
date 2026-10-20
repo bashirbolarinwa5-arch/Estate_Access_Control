@@ -1,5 +1,6 @@
 package com.example.demo.service;
 
+import com.example.demo.entity.Estate;
 import com.example.demo.entity.Role;
 import com.example.demo.entity.Security;
 import com.example.demo.entity.User;
@@ -18,17 +19,20 @@ public class SecurityService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final VisitService visitService;
+    private final CurrentUserService currentUserService;
 
     public SecurityService(
             SecurityRepository securityRepository,
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
-            VisitService visitService) {
+            VisitService visitService,
+            CurrentUserService currentUserService) {
 
         this.securityRepository = securityRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.visitService = visitService;
+        this.currentUserService = currentUserService;
     }
 
     // CREATE SECURITY
@@ -73,6 +77,14 @@ public class SecurityService {
                 Role.ROLE_SECURITY
         );
 
+        /*
+         * A security person created by an admin works
+         * in the admin's estate.
+         */
+        user.setEstate(
+                currentUserService.getRequiredEstate()
+        );
+
         User savedUser = userRepository.save(user);
 
         /*
@@ -91,18 +103,30 @@ public class SecurityService {
     // GET ALL SECURITY
     public List<Security> getAllSecurity() {
 
-        return securityRepository.findAll();
+        return securityRepository.findByUserEstate(
+                currentUserService.getRequiredEstate()
+        );
     }
 
     // GET SECURITY BY ID
     public Security getSecurityById(Long id) {
 
-        return securityRepository.findById(id)
-                .orElseThrow(
-                        () -> new RuntimeException(
-                                "security not found"
-                        )
-                );
+        Security securityPerson =
+                securityRepository.findById(id)
+                        .orElseThrow(
+                                () -> new RuntimeException(
+                                        "security not found"
+                                )
+                        );
+
+        currentUserService.verifySameEstate(
+                currentUserService.getRequiredEstate(),
+                securityPerson.getUser() == null
+                        ? null
+                        : securityPerson.getUser().getEstate()
+        );
+
+        return securityPerson;
     }
 
     // UPDATE SECURITY
@@ -117,6 +141,13 @@ public class SecurityService {
                                         "security not found"
                                 )
                         );
+
+        currentUserService.verifySameEstate(
+                currentUserService.getRequiredEstate(),
+                existingSecurity.getUser() == null
+                        ? null
+                        : existingSecurity.getUser().getEstate()
+        );
 
         existingSecurity.setName(
                 updatedSecurity.getName()
@@ -152,6 +183,13 @@ public class SecurityService {
                                         "security not found"
                                 )
                         );
+
+        currentUserService.verifySameEstate(
+                currentUserService.getRequiredEstate(),
+                securityPerson.getUser() == null
+                        ? null
+                        : securityPerson.getUser().getEstate()
+        );
 
         User user = securityPerson.getUser();
 

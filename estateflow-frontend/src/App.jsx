@@ -12,6 +12,7 @@ import {
     UserRound,
     Activity,
     UserCog,
+    Building2,
 } from "lucide-react";
 
 import {
@@ -42,6 +43,7 @@ import ResidentVisitorsPage from "./pages/ResidentVisitorsPage";
 import ResidentVisitsPage from "./pages/ResidentVisitsPage";
 
 import SuperAdminAdminsPage from "./pages/SuperAdminAdminsPage.jsx";
+import SuperAdminEstatesPage from "./pages/SuperAdminEstatesPage.jsx";
 import SuperAdminActivityPage from "./pages/SuperAdminActivityPage.jsx";
 
 
@@ -212,6 +214,12 @@ function Sidebar({
             name: "Dashboard",
             icon: <Home size={20} />,
             path: "/",
+        },
+
+        {
+            name: "Estates",
+            icon: <Building2 size={20} />,
+            path: "/super-admin/estates",
         },
 
         {
@@ -581,6 +589,7 @@ function MainLayout() {
     const superAdminAllowedPaths = [
 
         "/",
+        "/super-admin/estates",
         "/super-admin/admins",
         "/super-admin/activity",
 
@@ -895,6 +904,24 @@ function MainLayout() {
                             element={
                                 isPathAllowed("/resident/visits") ? (
                                     <ResidentVisitsPage />
+                                ) : (
+                                    <Navigate to="/" replace />
+                                )
+                            }
+                        />
+
+
+                        {/* =================================================
+                           SUPER ADMIN — ESTATES
+                           ================================================= */}
+
+                        <Route
+                            path="/super-admin/estates"
+                            element={
+                                isPathAllowed(
+                                    "/super-admin/estates"
+                                ) ? (
+                                    <SuperAdminEstatesPage />
                                 ) : (
                                     <Navigate to="/" replace />
                                 )

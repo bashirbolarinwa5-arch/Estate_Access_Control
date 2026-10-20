@@ -1,5 +1,7 @@
+
 package com.example.demo.repository;
 
+import com.example.demo.entity.Estate;
 import com.example.demo.entity.Resident;
 import com.example.demo.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -25,6 +27,13 @@ public interface ResidentRepository extends JpaRepository<Resident, Long> {
 
     // Used by Resident "My Profile"
     Optional<Resident> findByUserUsername(String username);
+
+    // Estate isolation — a resident's estate lives on its user
+    List<Resident> findByUserEstate(Estate estate);
+
+    List<Resident> findByUserEstateAndFullNameContainingIgnoreCase(Estate estate, String fullName);
+
+    List<Resident> findByUserEstateAndHouseNumberContainingIgnoreCase(Estate estate, String houseNumber);
+
+    List<Resident> findByUserEstateAndPhoneNumberContaining(Estate estate, String phoneNumber);
 }
-
-

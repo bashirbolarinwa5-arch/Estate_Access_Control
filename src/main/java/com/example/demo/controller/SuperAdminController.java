@@ -1,5 +1,6 @@
 package com.example.demo.controller;
 
+import com.example.demo.entity.Estate;
 import com.example.demo.entity.User;
 import com.example.demo.entity.Visit;
 import com.example.demo.response.ApiResponse;
@@ -49,7 +50,8 @@ public class SuperAdminController {
                 "Estate administrator created successfully",
                 superAdminService.createAdmin(
                         request.username(),
-                        request.password()
+                        request.password(),
+                        request.estateId()
                 )
         );
     }
@@ -136,12 +138,65 @@ public class SuperAdminController {
 
 
     /* =====================================================
+       ESTATE MANAGEMENT
+       ===================================================== */
+
+    @GetMapping("/estates")
+    public ApiResponse<List<Map<String, Object>>> listEstates() {
+
+        return new ApiResponse<>(
+                true,
+                "Estates retrieved successfully",
+                superAdminService.listEstates()
+        );
+    }
+
+
+    @PostMapping("/estates")
+    public ApiResponse<Estate> createEstate(
+            @RequestBody CreateEstateRequest request) {
+
+        return new ApiResponse<>(
+                true,
+                "Estate created successfully",
+                superAdminService.createEstate(
+                        request.estateName(),
+                        request.estateCode()
+                )
+        );
+    }
+
+
+    @PutMapping("/estates/{id}/activate")
+    public ApiResponse<Estate> activateEstate(@PathVariable Long id) {
+
+        return new ApiResponse<>(
+                true,
+                "Estate activated",
+                superAdminService.setEstateActive(id, true)
+        );
+    }
+
+
+    @PutMapping("/estates/{id}/deactivate")
+    public ApiResponse<Estate> deactivateEstate(@PathVariable Long id) {
+
+        return new ApiResponse<>(
+                true,
+                "Estate deactivated",
+                superAdminService.setEstateActive(id, false)
+        );
+    }
+
+
+    /* =====================================================
        REQUEST BODIES
        ===================================================== */
 
     public record CreateAdminRequest(
             String username,
-            String password
+            String password,
+            Long estateId
     ) {
     }
 
@@ -152,6 +207,12 @@ public class SuperAdminController {
 
     public record ResetPasswordRequest(
             String password
+    ) {
+    }
+
+    public record CreateEstateRequest(
+            String estateName,
+            String estateCode
     ) {
     }
 

@@ -30,6 +30,7 @@ public class AuthController {
                 request.getUsername(),
                 request.getPassword(),
                 request.getRole(),
+                request.getEstateCode(),
                 authentication
         );
 

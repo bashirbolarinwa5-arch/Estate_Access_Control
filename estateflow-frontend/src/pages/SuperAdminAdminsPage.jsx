@@ -19,12 +19,15 @@ import "./SuperAdminPages.css";
  *
  * Lists estate administrator accounts and provides the four
  * owner actions: create, edit (rename), disable/enable and
- * password reset. Residents, security personnel and visits
- * are NOT managed here — that is estate-admin work.
+ * password reset. Every admin is created INSIDE one estate —
+ * that estate is the boundary of all their data. Residents,
+ * security personnel and visits are NOT managed here —
+ * that is estate-admin work.
  */
 function SuperAdminAdminsPage() {
 
     const [admins, setAdmins] = useState([]);
+    const [estates, setEstates] = useState([]);
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -33,6 +36,7 @@ function SuperAdminAdminsPage() {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newUsername, setNewUsername] = useState("");
     const [newPassword, setNewPassword] = useState("");
+    const [newEstateId, setNewEstateId] = useState("");
     const [creating, setCreating] = useState(false);
 
     const [editingAdmin, setEditingAdmin] = useState(null);
@@ -85,19 +89,35 @@ function SuperAdminAdminsPage() {
 
         async function loadInitialAdmins() {
             try {
-                const response = await api.get("/super-admin/admins");
+                const [
+                    adminsResponse,
+                    estatesResponse,
+                ] = await Promise.all([
+                    api.get("/super-admin/admins"),
+                    api.get("/super-admin/estates"),
+                ]);
 
                 if (!active) {
                     return;
                 }
 
-                const data = response.data;
+                const data = adminsResponse.data;
 
                 setAdmins(
                     Array.isArray(data)
                         ? data
                         : Array.isArray(data?.data)
                             ? data.data
+                            : []
+                );
+
+                const estateData = estatesResponse.data;
+
+                setEstates(
+                    Array.isArray(estateData)
+                        ? estateData
+                        : Array.isArray(estateData?.data)
+                            ? estateData.data
                             : []
                 );
             } catch (err) {
@@ -146,12 +166,16 @@ function SuperAdminAdminsPage() {
                 {
                     username: newUsername.trim(),
                     password: newPassword,
+                    estateId: newEstateId
+                        ? Number(newEstateId)
+                        : null,
                 }
             );
 
             setShowCreateModal(false);
             setNewUsername("");
             setNewPassword("");
+            setNewEstateId("");
 
             loadAdmins();
 
@@ -408,6 +432,7 @@ function SuperAdminAdminsPage() {
                                 <tr>
                                     <th className="col-id">ID</th>
                                     <th>Username</th>
+                                    <th>Estate</th>
                                     <th>Status</th>
                                     <th className="col-actions">Actions</th>
                                 </tr>
@@ -435,6 +460,12 @@ function SuperAdminAdminsPage() {
                                                     {admin.username}
                                                 </strong>
                                             </div>
+                                        </td>
+
+                                        <td>
+                                            {admin.estate
+                                                ? admin.estate.estateName
+                                                : "—"}
                                         </td>
 
                                         <td>
@@ -576,6 +607,32 @@ function SuperAdminAdminsPage() {
                                     autoComplete="off"
                                     required
                                 />
+                            </label>
+
+                            <label>
+                                Estate
+
+                                <select
+                                    value={newEstateId}
+                                    onChange={(event) =>
+                                        setNewEstateId(event.target.value)
+                                    }
+                                    required
+                                >
+                                    <option value="">
+                                        Select the admin's estate
+                                    </option>
+
+                                    {estates.map((estate) => (
+                                        <option
+                                            key={estate.id}
+                                            value={estate.id}
+                                        >
+                                            {estate.estateName} (
+                                            {estate.estateCode})
+                                        </option>
+                                    ))}
+                                </select>
                             </label>
 
                             <div className="super-admin-modal-actions">

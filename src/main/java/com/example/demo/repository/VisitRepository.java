@@ -1,5 +1,6 @@
 package com.example.demo.repository;
 
+import com.example.demo.entity.Estate;
 import com.example.demo.entity.Resident;
 import com.example.demo.entity.Visit;
 import com.example.demo.entity.Visitor;
@@ -24,6 +25,17 @@ public interface VisitRepository extends JpaRepository<Visit, Long> {
     long countByVisitDate(LocalDate visitDate);
 
     long countByStatus(VisitorStatus status);
+
+    // Estate isolation
+    List<Visit> findByEstate(Estate estate);
+
+    List<Visit> findByStatusAndEstate(VisitorStatus status, Estate estate);
+
+    List<Visit> findByVisitDateAndEstate(LocalDate visitDate, Estate estate);
+
+    long countByVisitDateAndEstate(LocalDate visitDate, Estate estate);
+
+    long countByStatusAndEstate(VisitorStatus status, Estate estate);
 
     List<Visit> findTop10ByOrderByIdDesc();
 }

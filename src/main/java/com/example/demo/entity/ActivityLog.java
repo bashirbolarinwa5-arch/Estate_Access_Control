@@ -21,4 +21,13 @@ public class ActivityLog {
 
     private LocalDateTime timestamp;
 
+    /*
+     * The estate this event happened in, or NULL for
+     * platform-level events. Login events are attached to
+     * the logging-in user's estate; SUPER_ADMIN actions
+     * are platform-wide (NULL).
+     */
+    @ManyToOne
+    private Estate estate;
+
 }

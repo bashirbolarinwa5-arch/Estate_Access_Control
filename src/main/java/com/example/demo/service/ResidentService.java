@@ -1,5 +1,6 @@
 package com.example.demo.service;
 
+import com.example.demo.entity.Estate;
 import com.example.demo.entity.Resident;
 import com.example.demo.entity.Role;
 import com.example.demo.entity.User;
@@ -22,17 +23,20 @@ public class ResidentService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final ActivityLogService activityLogService;
+    private final CurrentUserService currentUserService;
 
     public ResidentService(
             ResidentRepository repository,
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
-            ActivityLogService activityLogService) {
+            ActivityLogService activityLogService,
+            CurrentUserService currentUserService) {
 
         this.repository = repository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.activityLogService = activityLogService;
+        this.currentUserService = currentUserService;
     }
 
     // CREATE RESIDENT + USER ACCOUNT
@@ -97,6 +101,14 @@ public class ResidentService {
                 Role.ROLE_RESIDENT
         );
 
+        /*
+         * A resident created by an admin joins the
+         * admin's estate.
+         */
+        user.setEstate(
+                currentUserService.getRequiredEstate()
+        );
+
         User savedUser = userRepository.save(user);
 
         Resident resident = new Resident();
@@ -123,18 +135,29 @@ public class ResidentService {
     // GET ALL RESIDENTS
     public List<Resident> getAllResidents() {
 
-        return repository.findAll();
+        return repository.findByUserEstate(
+                currentUserService.getRequiredEstate()
+        );
     }
 
     // GET RESIDENT BY ID
     public Resident getById(Long id) {
 
-        return repository.findById(id)
+        Resident resident = repository.findById(id)
                 .orElseThrow(() ->
                         new RuntimeException(
                                 "Resident not found"
                         )
                 );
+
+        currentUserService.verifySameEstate(
+                currentUserService.getRequiredEstate(),
+                resident.getUser() == null
+                        ? null
+                        : resident.getUser().getEstate()
+        );
+
+        return resident;
     }
 
     // SEARCH RESIDENTS
@@ -143,16 +166,23 @@ public class ResidentService {
             String houseNumber,
             String phoneNumber) {
 
+        Estate estate =
+                currentUserService.getRequiredEstate();
+
         if (name != null && !name.isBlank()) {
 
             return repository
-                    .findByFullNameContainingIgnoreCase(name);
+                    .findByUserEstateAndFullNameContainingIgnoreCase(
+                            estate,
+                            name
+                    );
         }
 
         if (houseNumber != null && !houseNumber.isBlank()) {
 
             return repository
-                    .findByHouseNumberContainingIgnoreCase(
+                    .findByUserEstateAndHouseNumberContainingIgnoreCase(
+                            estate,
                             houseNumber
                     );
         }
@@ -160,10 +190,13 @@ public class ResidentService {
         if (phoneNumber != null && !phoneNumber.isBlank()) {
 
             return repository
-                    .findByPhoneNumberContaining(phoneNumber);
+                    .findByUserEstateAndPhoneNumberContaining(
+                            estate,
+                            phoneNumber
+                    );
         }
 
-        return repository.findAll();
+        return repository.findByUserEstate(estate);
     }
 
     // DELETE RESIDENT
@@ -176,6 +209,13 @@ public class ResidentService {
                                         "Resident not found"
                                 )
                         );
+
+        currentUserService.verifySameEstate(
+                currentUserService.getRequiredEstate(),
+                resident.getUser() == null
+                        ? null
+                        : resident.getUser().getEstate()
+        );
 
         User user = resident.getUser();
 
@@ -205,6 +245,13 @@ public class ResidentService {
                                         "Resident not found"
                                 )
                         );
+
+        currentUserService.verifySameEstate(
+                currentUserService.getRequiredEstate(),
+                existingResident.getUser() == null
+                        ? null
+                        : existingResident.getUser().getEstate()
+        );
 
         if (resident.getEmail() == null ||
                 resident.getEmail().isBlank()) {

@@ -43,6 +43,18 @@ public class User {
     private Boolean active = true;
 
 
+    /*
+     * The estate this account operates in.
+     *
+     * NULL means the account belongs to the platform,
+     * not to an estate — that is exactly and only the
+     * SUPER_ADMIN.
+     */
+    @ManyToOne
+    @JoinColumn(name = "estate_id")
+    private Estate estate;
+
+
 
     public User(String username, String password, Role role) {
         this.username = username;

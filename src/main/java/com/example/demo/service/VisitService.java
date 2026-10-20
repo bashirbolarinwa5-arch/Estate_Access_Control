@@ -5,8 +5,8 @@ import com.example.demo.repository.ResidentRepository;
 import com.example.demo.repository.VisitRepository;
 import com.example.demo.repository.VisitorRepository;
 import org.springframework.security.core.Authentication;
-import com.example.demo.repository.UserRepository;
 import org.springframework.security.core.context.SecurityContextHolder;
+import com.example.demo.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -22,19 +22,22 @@ public class VisitService {
     private final ResidentRepository residentRepository;
     private final UserRepository userRepository;
     private final ActivityLogService activityLogService;
+    private final CurrentUserService currentUserService;
 
     public VisitService(
             VisitRepository visitRepository,
             VisitorRepository visitorRepository,
             ResidentRepository residentRepository,
             UserRepository userRepository,
-            ActivityLogService activityLogService) {
+            ActivityLogService activityLogService,
+            CurrentUserService currentUserService) {
 
         this.visitRepository = visitRepository;
         this.visitorRepository = visitorRepository;
         this.residentRepository = residentRepository;
         this.userRepository = userRepository;
         this.activityLogService = activityLogService;
+        this.currentUserService = currentUserService;
     }
 
     // ==============================
@@ -126,9 +129,21 @@ public class VisitService {
             Visitor visitor,
             String purpose) {
 
+        // The gate/admin creating the walk-in defines the estate.
+        Estate estate =
+                currentUserService.getRequiredEstate();
+
         Resident resident = residentRepository.findById(residentId)
                 .orElseThrow(() ->
                         new RuntimeException("Resident not found"));
+
+        // The resident must live in the same estate as the actor.
+        currentUserService.verifySameEstate(
+                estate,
+                resident.getUser() == null
+                        ? null
+                        : resident.getUser().getEstate()
+        );
 
         Visitor existingVisitor =
                 visitorRepository.findByPhoneNumberAndResident(
@@ -143,6 +158,7 @@ public class VisitService {
             existingVisitor.setPhoneNumber(visitor.getPhoneNumber());
             existingVisitor.setPurpose(purpose);
             existingVisitor.setResident(resident);
+            existingVisitor.setEstate(estate);
 
             existingVisitor =
                     visitorRepository.save(existingVisitor);
@@ -152,6 +168,7 @@ public class VisitService {
 
         visit.setVisitor(existingVisitor);
         visit.setResident(resident);
+        visit.setEstate(estate);
         visit.setPurpose(purpose);
         visit.setAccessCode(generateUniqueAccessCode());
         visit.setVisitDate(LocalDate.now());
@@ -267,8 +284,12 @@ public class VisitService {
 
     public List<Visit> getPendingVisits() {
 
-        return visitRepository.findByStatus(
-                VisitorStatus.PENDING
+        Estate estate =
+                currentUserService.getRequiredEstate();
+
+        return visitRepository.findByStatusAndEstate(
+                VisitorStatus.PENDING,
+                estate
         );
     }
 
@@ -278,8 +299,12 @@ public class VisitService {
 
     public List<Visit> getApprovedVisits() {
 
-        return visitRepository.findByStatus(
-                VisitorStatus.APPROVED
+        Estate estate =
+                currentUserService.getRequiredEstate();
+
+        return visitRepository.findByStatusAndEstate(
+                VisitorStatus.APPROVED,
+                estate
         );
     }
 
@@ -289,8 +314,12 @@ public class VisitService {
 
     public List<Visit> getCheckedInVisits() {
 
-        return visitRepository.findByStatus(
-                VisitorStatus.CHECKED_IN
+        Estate estate =
+                currentUserService.getRequiredEstate();
+
+        return visitRepository.findByStatusAndEstate(
+                VisitorStatus.CHECKED_IN,
+                estate
         );
     }
 
@@ -303,6 +332,11 @@ public class VisitService {
         Visit visit = visitRepository.findById(id)
                 .orElseThrow(() ->
                         new RuntimeException("Visit not found"));
+
+        currentUserService.verifySameEstate(
+                currentUserService.getRequiredEstate(),
+                visit.getEstate()
+        );
 
         if (visit.getStatus() != VisitorStatus.PENDING) {
 
@@ -335,6 +369,11 @@ public class VisitService {
                 .orElseThrow(() ->
                         new RuntimeException("Visit not found"));
 
+        currentUserService.verifySameEstate(
+                currentUserService.getRequiredEstate(),
+                visit.getEstate()
+        );
+
         if (visit.getStatus() != VisitorStatus.PENDING) {
 
             throw new RuntimeException(
@@ -362,10 +401,17 @@ public class VisitService {
 
     public Visit checkInVisitor(String accessCode) {
 
+        Estate estate =
+                currentUserService.getRequiredEstate();
+
         Visit visit =
                 visitRepository.findByAccessCode(accessCode);
 
-        if (visit == null) {
+        // Same message for "not found" and "wrong estate" so
+        // an estate cannot probe another estate's codes.
+        if (visit == null ||
+                visit.getEstate() == null ||
+                !visit.getEstate().getId().equals(estate.getId())) {
 
             throw new RuntimeException(
                     "Access code not found");
@@ -400,10 +446,15 @@ public class VisitService {
 
     public Visit checkOutVisitor(String accessCode) {
 
+        Estate estate =
+                currentUserService.getRequiredEstate();
+
         Visit visit =
                 visitRepository.findByAccessCode(accessCode);
 
-        if (visit == null) {
+        if (visit == null ||
+                visit.getEstate() == null ||
+                !visit.getEstate().getId().equals(estate.getId())) {
 
             throw new RuntimeException(
                     "Access code not found");
@@ -438,7 +489,10 @@ public class VisitService {
 
     public List<Visit> getAllVisit() {
 
-        return visitRepository.findAll();
+        Estate estate =
+                currentUserService.getRequiredEstate();
+
+        return visitRepository.findByEstate(estate);
     }
 
     // ==============================
@@ -447,9 +501,16 @@ public class VisitService {
 
     public Visit getVisitById(Long id) {
 
-        return visitRepository.findById(id)
+        Visit visit = visitRepository.findById(id)
                 .orElseThrow(() ->
                         new RuntimeException("Visit not found"));
+
+        currentUserService.verifySameEstate(
+                currentUserService.getRequiredEstate(),
+                visit.getEstate()
+        );
+
+        return visit;
     }
 
     // ==============================
@@ -465,6 +526,11 @@ public class VisitService {
                         .orElseThrow(() ->
                                 new RuntimeException(
                                         "Visit not found"));
+
+        currentUserService.verifySameEstate(
+                currentUserService.getRequiredEstate(),
+                existingVisit.getEstate()
+        );
 
         existingVisit.setPurpose(
                 updatedVisit.getPurpose());
@@ -496,6 +562,11 @@ public class VisitService {
                         .orElseThrow(() ->
                                 new RuntimeException(
                                         "Visit not found"));
+
+        currentUserService.verifySameEstate(
+                currentUserService.getRequiredEstate(),
+                visit.getEstate()
+        );
 
         visitRepository.delete(visit);
 
@@ -549,6 +620,10 @@ public class VisitService {
 
         visit.setVisitor(visitor);
         visit.setResident(resident);
+
+        // A planned visit always belongs to the resident's estate.
+        visit.setEstate(resident.getUser().getEstate());
+
         visit.setPurpose(purpose.trim());
         visit.setVisitDate(visitDate);
         visit.setAccessCode(generateUniqueAccessCode());

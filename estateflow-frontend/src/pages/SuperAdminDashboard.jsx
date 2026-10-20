@@ -9,6 +9,7 @@ import {
     ArrowRight,
     Activity,
     RefreshCw,
+    Building2,
 } from "lucide-react";
 
 import "./Dashboard.css";
@@ -195,6 +196,30 @@ function SuperAdminDashboard() {
                     </strong>
 
                     <p>Estate administrator accounts</p>
+                </div>
+
+                <div className="stat-card">
+                    <div className="stat-icon purple">
+                        <Building2 size={21} />
+                    </div>
+
+                    <div className="stat-card-top">
+                        <span>Total Estates</span>
+                        <ArrowRight
+                            size={17}
+                            className="stat-arrow"
+                        />
+                    </div>
+
+                    <strong className="stat-value">
+                        {count("estates")}
+                    </strong>
+
+                    <p>
+                        {loading
+                            ? "—"
+                            : `${stats?.activeEstates ?? 0} active`}
+                    </p>
                 </div>
 
                 <div className="stat-card">

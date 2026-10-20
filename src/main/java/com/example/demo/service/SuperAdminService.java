@@ -1,8 +1,10 @@
 package com.example.demo.service;
 
+import com.example.demo.entity.Estate;
 import com.example.demo.entity.Role;
 import com.example.demo.entity.User;
 import com.example.demo.entity.Visit;
+import com.example.demo.repository.EstateRepository;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.repository.VisitRepository;
 import com.example.demo.repository.VisitorRepository;
@@ -18,16 +20,19 @@ public class SuperAdminService {
     private final UserRepository userRepository;
     private final VisitRepository visitRepository;
     private final VisitorRepository visitorRepository;
+    private final EstateRepository estateRepository;
     private final ActivityLogService activityLogService;
 
     public SuperAdminService(UserRepository userRepository,
                              VisitRepository visitRepository,
                              VisitorRepository visitorRepository,
+                             EstateRepository estateRepository,
                              ActivityLogService activityLogService) {
 
         this.userRepository = userRepository;
         this.visitRepository = visitRepository;
         this.visitorRepository = visitorRepository;
+        this.estateRepository = estateRepository;
         this.activityLogService = activityLogService;
     }
 
@@ -59,7 +64,7 @@ public class SuperAdminService {
     }
 
 
-    public User createAdmin(String username, String password) {
+    public User createAdmin(String username, String password, Long estateId) {
 
         if (username == null || username.isBlank()) {
             throw new RuntimeException("Username is required");
@@ -74,11 +79,28 @@ public class SuperAdminService {
             throw new RuntimeException("Username already exists");
         }
 
+        /*
+         * An estate admin must belong to an estate from
+         * day one — that estate is the boundary of every
+         * record they will ever create.
+         */
+        Estate estate = estateId == null
+                ? null
+                : estateRepository.findById(estateId)
+                        .orElse(null);
+
+        if (estate == null) {
+            throw new RuntimeException(
+                    "A valid estate is required for an estate admin");
+        }
+
         User admin = new User(
                 username.trim(),
                 password,
                 Role.ROLE_ADMIN
         );
+
+        admin.setEstate(estate);
 
         User saved = userRepository.save(admin);
 
@@ -86,7 +108,8 @@ public class SuperAdminService {
                 saved.getUsername(),
                 "ADMIN_ACCOUNT_CREATED",
                 "Platform administrator created estate admin account '"
-                        + saved.getUsername() + "'"
+                        + saved.getUsername()
+                        + "' for estate " + estate.getEstateName()
         );
 
         return saved;
@@ -180,6 +203,18 @@ public class SuperAdminService {
 
         Map<String, Object> stats = new LinkedHashMap<>();
 
+        stats.put("estates",
+                estateRepository.count());
+
+        long activeEstateCount = estateRepository
+                .findAll()
+                .stream()
+                .filter(estate ->
+                        Boolean.TRUE.equals(estate.getActive()))
+                .count();
+
+        stats.put("activeEstates", activeEstateCount);
+
         stats.put("admins",
                 userRepository.countByRole(Role.ROLE_ADMIN));
 
@@ -202,6 +237,108 @@ public class SuperAdminService {
     public List<Visit> recentVisits() {
 
         return visitRepository.findTop10ByOrderByIdDesc();
+    }
+
+
+    /* =====================================================
+       ESTATE MANAGEMENT
+       ===================================================== */
+
+    /*
+     * All estates with a per-estate headcount snapshot,
+     * so the platform owner can see the shape of every
+     * estate at a glance.
+     */
+    public List<Map<String, Object>> listEstates() {
+
+        return estateRepository
+                .findAll()
+                .stream()
+                .map(estate -> {
+                    Map<String, Object> view = new LinkedHashMap<>();
+
+                    view.put("id", estate.getId());
+                    view.put("estateName", estate.getEstateName());
+                    view.put("estateCode", estate.getEstateCode());
+                    view.put("active", estate.getActive());
+                    view.put("createdAt", estate.getCreatedAt());
+                    view.put("admins", userRepository
+                            .countByRoleAndEstate(Role.ROLE_ADMIN, estate));
+                    view.put("residents", userRepository
+                            .countByRoleAndEstate(Role.ROLE_RESIDENT, estate));
+                    view.put("securityPersonnel", userRepository
+                            .countByRoleAndEstate(Role.ROLE_SECURITY, estate));
+
+                    return view;
+                })
+                .toList();
+    }
+
+
+    public Estate createEstate(String estateName, String estateCode) {
+
+        if (estateName == null || estateName.isBlank()) {
+            throw new RuntimeException("Estate name is required");
+        }
+
+        if (estateCode == null || estateCode.isBlank()) {
+            throw new RuntimeException("Estate code is required");
+        }
+
+        String cleanCode = estateCode.trim().toUpperCase();
+
+        if (!cleanCode.matches("[A-Z0-9_-]{3,20}")) {
+            throw new RuntimeException(
+                    "Estate code must be 3–20 characters, letters/numbers only");
+        }
+
+        if (estateRepository.existsByEstateCode(cleanCode)) {
+            throw new RuntimeException(
+                    "Estate code already exists");
+        }
+
+        Estate estate = new Estate(
+                estateName.trim(),
+                cleanCode
+        );
+
+        Estate saved = estateRepository.save(estate);
+
+        activityLogService.log(
+                "PLATFORM",
+                "ESTATE_CREATED",
+                "Platform administrator created estate '"
+                        + saved.getEstateName()
+                        + "' (" + saved.getEstateCode() + ")"
+        );
+
+        return saved;
+    }
+
+
+    public Estate setEstateActive(Long id, boolean active) {
+
+        Estate estate = estateRepository.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException("Estate not found"));
+
+        // Already in the requested state — nothing to do.
+        if (Boolean.TRUE.equals(estate.getActive()) == active) {
+            return estate;
+        }
+
+        estate.setActive(active);
+
+        Estate saved = estateRepository.save(estate);
+
+        activityLogService.log(
+                "PLATFORM",
+                active ? "ESTATE_ACTIVATED" : "ESTATE_DEACTIVATED",
+                "Estate '" + saved.getEstateName()
+                        + (active ? "' activated" : "' deactivated")
+        );
+
+        return saved;
     }
 
 }

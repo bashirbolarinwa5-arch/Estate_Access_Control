@@ -1,5 +1,6 @@
 package com.example.demo.service;
 
+import com.example.demo.entity.Estate;
 import com.example.demo.entity.VisitorStatus;
 import com.example.demo.repository.VisitRepository;
 import org.springframework.stereotype.Service;
@@ -12,61 +13,84 @@ import java.util.Map;
 public class SecurityDashboardService {
 
     private final VisitRepository visitRepository;
+    private final CurrentUserService currentUserService;
 
-    public SecurityDashboardService(VisitRepository visitRepository) {
+    public SecurityDashboardService(
+            VisitRepository visitRepository,
+            CurrentUserService currentUserService) {
         this.visitRepository = visitRepository;
+        this.currentUserService = currentUserService;
     }
 
-    // Complete dashboard data
+    // Complete dashboard data (estate-scoped)
     public Map<String, Long> getDashboard() {
+
+        LocalDate today = LocalDate.now();
+        Estate estate =
+                currentUserService.getRequiredEstate();
 
         Map<String, Long> dashboard = new HashMap<>();
 
         dashboard.put(
                 "todayVisits",
-                visitRepository.countByVisitDate(LocalDate.now())
+                visitRepository.countByVisitDateAndEstate(today, estate)
         );
 
         dashboard.put(
                 "pendingVisits",
-                visitRepository.countByStatus(VisitorStatus.PENDING)
+                visitRepository.countByStatusAndEstate(VisitorStatus.PENDING, estate)
         );
 
         dashboard.put(
                 "checkedInVisits",
-                visitRepository.countByStatus(VisitorStatus.CHECKED_IN)
+                visitRepository.countByStatusAndEstate(VisitorStatus.CHECKED_IN, estate)
         );
 
         dashboard.put(
                 "checkedOutVisits",
-                visitRepository.countByStatus(VisitorStatus.CHECKED_OUT)
+                visitRepository.countByStatusAndEstate(VisitorStatus.CHECKED_OUT, estate)
         );
 
         dashboard.put(
                 "expiredVisits",
-                visitRepository.countByStatus(VisitorStatus.EXPIRED)
+                visitRepository.countByStatusAndEstate(VisitorStatus.EXPIRED, estate)
         );
 
         return dashboard;
     }
 
     public long getTodayVisits() {
-        return visitRepository.countByVisitDate(LocalDate.now());
+        return visitRepository.countByVisitDateAndEstate(
+                LocalDate.now(),
+                currentUserService.getRequiredEstate()
+        );
     }
 
     public long getPendingVisits() {
-        return visitRepository.countByStatus(VisitorStatus.PENDING);
+        return visitRepository.countByStatusAndEstate(
+                VisitorStatus.PENDING,
+                currentUserService.getRequiredEstate()
+        );
     }
 
     public long getCheckedInVisits() {
-        return visitRepository.countByStatus(VisitorStatus.CHECKED_IN);
+        return visitRepository.countByStatusAndEstate(
+                VisitorStatus.CHECKED_IN,
+                currentUserService.getRequiredEstate()
+        );
     }
 
     public long getCheckedOutVisits() {
-        return visitRepository.countByStatus(VisitorStatus.CHECKED_OUT);
+        return visitRepository.countByStatusAndEstate(
+                VisitorStatus.CHECKED_OUT,
+                currentUserService.getRequiredEstate()
+        );
     }
 
     public long getExpiredVisits() {
-        return visitRepository.countByStatus(VisitorStatus.EXPIRED);
+        return visitRepository.countByStatusAndEstate(
+                VisitorStatus.EXPIRED,
+                currentUserService.getRequiredEstate()
+        );
     }
 }

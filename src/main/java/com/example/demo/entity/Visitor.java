@@ -16,6 +16,12 @@ public class Visitor {
     @JsonBackReference
     private Resident resident;
 
+    /*
+     * Every visitor is isolated inside one estate.
+     */
+    @ManyToOne
+    private Estate estate;
+
     private String fullName;
 
     private String purpose;

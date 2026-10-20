@@ -20,6 +20,12 @@ public class Visit {
     @ManyToOne
     private Resident resident;
 
+    /*
+     * Every visit is isolated inside one estate.
+     */
+    @ManyToOne
+    private Estate estate;
+
     private String purpose;
 
     @Column(unique = true, nullable = false)
