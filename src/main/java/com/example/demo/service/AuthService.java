@@ -15,14 +15,17 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final ActivityLogService activityLogService;
 
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
-                       JwtService jwtService) {
+                       JwtService jwtService,
+                       ActivityLogService activityLogService) {
 
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.activityLogService = activityLogService;
     }
     /*
      * Public signup may only ever create a RESIDENT.
@@ -81,7 +84,20 @@ public class AuthService {
             throw new RuntimeException("Invalid username or password");
         }
 
+        if (!Boolean.TRUE.equals(user.getActive())) {
+            throw new RuntimeException(
+                    "This account has been disabled. Contact the platform administrator.");
+        }
+
         String token = jwtService.generateToken(user);
+
+        activityLogService.log(
+                user.getUsername(),
+                "USER_LOGIN",
+                user.getUsername()
+                        + " logged in as "
+                        + user.getRole().name().replace("ROLE_", "")
+        );
 
         return new LoginResponse(
                 token,

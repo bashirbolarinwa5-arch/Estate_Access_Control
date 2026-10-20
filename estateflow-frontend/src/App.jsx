@@ -11,6 +11,7 @@ import {
     Users,
     UserRound,
     Activity,
+    UserCog,
 } from "lucide-react";
 
 import {
@@ -39,6 +40,9 @@ import { useAuth } from "./context/useAuth";
 import ResidentProfilePage from "./pages/ResidentProfilePage";
 import ResidentVisitorsPage from "./pages/ResidentVisitorsPage";
 import ResidentVisitsPage from "./pages/ResidentVisitsPage";
+
+import SuperAdminAdminsPage from "./pages/SuperAdminAdminsPage.jsx";
+import SuperAdminActivityPage from "./pages/SuperAdminActivityPage.jsx";
 
 
 /* =========================================================
@@ -70,6 +74,9 @@ function Sidebar({
 
     const isResident =
         role === "ROLE_RESIDENT";
+
+    const isSuperAdmin =
+        role === "ROLE_SUPER_ADMIN";
 
 
     /* =====================================================
@@ -196,6 +203,33 @@ function Sidebar({
 
 
     /* =====================================================
+       SUPER ADMIN NAVIGATION
+       ===================================================== */
+
+    const superAdminNavigation = [
+
+        {
+            name: "Dashboard",
+            icon: <Home size={20} />,
+            path: "/",
+        },
+
+        {
+            name: "Estate Admins",
+            icon: <UserCog size={20} />,
+            path: "/super-admin/admins",
+        },
+
+        {
+            name: "System Activity",
+            icon: <Activity size={20} />,
+            path: "/super-admin/activity",
+        },
+
+    ];
+
+
+    /* =====================================================
        SELECT NAVIGATION BASED ON ROLE
        ===================================================== */
 
@@ -205,7 +239,9 @@ function Sidebar({
             ? securityNavigation
             : isResident
                 ? residentNavigation
-                : [];
+                : isSuperAdmin
+                    ? superAdminNavigation
+                    : [];
 
 
     /* =====================================================
@@ -285,11 +321,13 @@ function Sidebar({
 
             <div className="menu-label">
 
-                {isSecurity
-                    ? "SECURITY OPERATIONS"
-                    : isResident
-                        ? "RESIDENT PORTAL"
-                        : "MAIN MENU"}
+                {isSuperAdmin
+                    ? "PLATFORM ADMIN"
+                    : isSecurity
+                        ? "SECURITY OPERATIONS"
+                        : isResident
+                            ? "RESIDENT PORTAL"
+                            : "MAIN MENU"}
 
             </div>
 
@@ -495,6 +533,8 @@ function MainLayout() {
     const isResident =
         role === "ROLE_RESIDENT";
 
+    const isSuperAdmin =
+        role === "ROLE_SUPER_ADMIN";
 
     const [mobileMenu, setMobileMenu] =
         useState(false);
@@ -538,6 +578,15 @@ function MainLayout() {
     ];
 
 
+    const superAdminAllowedPaths = [
+
+        "/",
+        "/super-admin/admins",
+        "/super-admin/activity",
+
+    ];
+
+
     /* =====================================================
        PATH AUTHORIZATION
        ===================================================== */
@@ -565,6 +614,15 @@ function MainLayout() {
         if (isResident) {
 
             return residentAllowedPaths.includes(
+                path
+            );
+
+        }
+
+
+        if (isSuperAdmin) {
+
+            return superAdminAllowedPaths.includes(
                 path
             );
 
@@ -837,6 +895,42 @@ function MainLayout() {
                             element={
                                 isPathAllowed("/resident/visits") ? (
                                     <ResidentVisitsPage />
+                                ) : (
+                                    <Navigate to="/" replace />
+                                )
+                            }
+                        />
+
+
+                        {/* =================================================
+                           SUPER ADMIN — ESTATE ADMINS
+                           ================================================= */}
+
+                        <Route
+                            path="/super-admin/admins"
+                            element={
+                                isPathAllowed(
+                                    "/super-admin/admins"
+                                ) ? (
+                                    <SuperAdminAdminsPage />
+                                ) : (
+                                    <Navigate to="/" replace />
+                                )
+                            }
+                        />
+
+
+                        {/* =================================================
+                           SUPER ADMIN — SYSTEM ACTIVITY
+                           ================================================= */}
+
+                        <Route
+                            path="/super-admin/activity"
+                            element={
+                                isPathAllowed(
+                                    "/super-admin/activity"
+                                ) ? (
+                                    <SuperAdminActivityPage />
                                 ) : (
                                     <Navigate to="/" replace />
                                 )

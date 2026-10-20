@@ -4,6 +4,7 @@ public enum Role {
 
     ROLE_ADMIN,
     ROLE_SECURITY,
-    ROLE_RESIDENT
+    ROLE_RESIDENT,
+    ROLE_SUPER_ADMIN
 
 }

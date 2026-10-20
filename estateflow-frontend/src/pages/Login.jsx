@@ -51,10 +51,15 @@ function Login() {
 
             /*
              * Send each role to the appropriate area.
-             * For now, the existing dashboard remains the destination
-             * until dedicated role dashboards are completed.
+             * The platform owner works from the super admin
+             * dashboard; estate roles land on the shared
+             * dashboard, which renders per role.
              */
-            navigate("/");
+            navigate(
+                actualRole === "ROLE_SUPER_ADMIN"
+                    ? "/super-admin/admins"
+                    : "/"
+            );
         } catch (error) {
             console.error("Login failed:", error);
 
@@ -158,6 +163,10 @@ function Login() {
                                         >
                                             <option value="ROLE_ADMIN">
                                                 Administrator
+                                            </option>
+
+                                            <option value="ROLE_SUPER_ADMIN">
+                                                Platform Owner
                                             </option>
 
                                             <option value="ROLE_SECURITY">

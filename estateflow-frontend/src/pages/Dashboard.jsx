@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 import ResidentDashboard from "./ResidentDashboard";
+import SuperAdminDashboard from "./SuperAdminDashboard";
 
 import {
     Users,
@@ -34,6 +35,12 @@ function Dashboard() {
 
     if (role === "ROLE_RESIDENT") {
         return <ResidentDashboard />;
+    }
+
+    // The platform owner gets a dedicated dashboard —
+    // estate dashboards would call estate-only APIs.
+    if (role === "ROLE_SUPER_ADMIN") {
+        return <SuperAdminDashboard />;
     }
 
     return <AdminDashboard />;

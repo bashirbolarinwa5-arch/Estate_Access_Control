@@ -126,7 +126,6 @@ public class SecurityConfig {
                         .hasRole("ADMIN")
 
                         // Visit management
-                        // Visit management
 
                         .requestMatchers(
                                 HttpMethod.GET,
@@ -206,6 +205,15 @@ public class SecurityConfig {
                                 "/security/check-out/{accessCode}"
                         )
                         .hasAnyRole("ADMIN", "SECURITY")
+
+                        // Super Admin (platform owner) routes.
+                        //
+                        // Every other matcher above names specific estate
+                        // roles, so a SUPER_ADMIN is automatically locked
+                        // out of estate operations (residents, visitors,
+                        // visits, security) and may only use these routes.
+                        .requestMatchers("/super-admin/**")
+                        .hasRole("SUPER_ADMIN")
 
                         .requestMatchers(
                                 HttpMethod.PUT,

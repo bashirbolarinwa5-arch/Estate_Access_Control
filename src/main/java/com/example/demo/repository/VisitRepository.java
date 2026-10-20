@@ -24,4 +24,6 @@ public interface VisitRepository extends JpaRepository<Visit, Long> {
     long countByVisitDate(LocalDate visitDate);
 
     long countByStatus(VisitorStatus status);
+
+    List<Visit> findTop10ByOrderByIdDesc();
 }

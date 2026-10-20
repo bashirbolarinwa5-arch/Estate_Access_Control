@@ -57,7 +57,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             User user = userRepository.findByUsername(username)
                     .orElse(null);
 
-            if (user != null) {
+            // A disabled account is treated exactly like an
+            // unauthenticated caller: no authority is placed in
+            // the security context, so protected routes reject
+            // the request even though the token itself is valid.
+            if (user != null && Boolean.TRUE.equals(user.getActive())) {
 
                 System.out.println("JWT USERNAME: " + user.getUsername());
                 System.out.println("JWT ROLE: " + user.getRole().name());

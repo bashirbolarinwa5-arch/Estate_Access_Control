@@ -31,6 +31,18 @@ public class User {
     private Role role;
 
 
+    /*
+     * Disabled accounts keep their data but can no longer
+     * log in, and existing tokens stop working because the
+     * JWT filter re-checks this flag on every request.
+     *
+     * The column default keeps existing users enabled when
+     * Hibernate adds the column to an existing database.
+     */
+    @Column(nullable = false, columnDefinition = "boolean default true")
+    private Boolean active = true;
+
+
 
     public User(String username, String password, Role role) {
         this.username = username;
