@@ -145,6 +145,20 @@ public class AuthService {
                     "This account has been disabled. Contact the platform administrator.");
         }
 
+        /*
+         * A deactivated estate blocks its users completely:
+         * authentication fails, no JWT is issued, nothing to
+         * bypass with. SUPER_ADMIN is platform-level (no
+         * estate) and can always log in.
+         */
+        if (user.getEstate() != null
+                && !Boolean.TRUE.equals(user.getEstate().getActive())) {
+
+            throw new RuntimeException(
+                    "This estate has been deactivated. "
+                            + "Please contact the platform administrator.");
+        }
+
         String token = jwtService.generateToken(user);
 
         /*
