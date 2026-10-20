@@ -198,6 +198,7 @@ Files involved:
 | `.env.example` | template for the two required secrets |
 
 Notes:
+- Full step-by-step server setup (Docker install, firewall, admin seeding, backups, troubleshooting): **[DEPLOYMENT.md](DEPLOYMENT.md)**.
 - The API URL for the browser defaults to `http://localhost:8081`. Deploying the web build elsewhere? Pass `--build-arg VITE_API_BASE_URL=https://api.your-domain.com` (Vite inlines it at build time).
 - `CORS_ALLOWED_ORIGINS` must include the origin users browse from, e.g. `http://localhost:5173`.
 
