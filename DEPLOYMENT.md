@@ -1,11 +1,30 @@
-# 🚀 EstateFlow — VPS Deployment Runbook
+# 🚀 EstateFlow — Production Deployment Runbook
 
-Step-by-step deployment to an Ubuntu VPS using the Docker setup in this repo.
-Follow the steps in order — each one takes 1–5 minutes except the first build (~5–10 min).
+**Topology:**
+
+```
+┌─────────────────────┐          ┌────────────────────────────────┐
+│  Vercel (HTTPS)     │          │  VPS (Ubuntu + Docker)         │
+│                     │  HTTPS   │                                │
+│  React frontend  ───┼──────────┼──►  Caddy ──► Spring Boot JAR  │
+│  (built by Vercel)  │  API     │              │                 │
+└─────────────────────┘  calls   │              ▼                 │
+                                 │           PostgreSQL           │
+                                 └────────────────────────────────┘
+```
+
+- **Frontend → Vercel:** Vercel imports the GitHub repo and builds `estateflow-frontend` itself. No source, no Node on the VPS.
+- **Backend → VPS:** only the compiled Spring Boot JAR + Postgres run on the server. Spring Boot packages every dependency inside the JAR, so the server never sees `src/`, `pom.xml`, Maven or Node.
 
 > **Security rule #1:** the SSH **private key never leaves your machine**, and nothing
 > secret (passwords, JWT secret, `.env`) is ever committed to git. Secrets live only
 > in the server's `.env` file.
+
+> ⚠️ **HTTPS is not optional here.** Vercel always serves your site over HTTPS, and
+> browsers **block HTTPS pages from calling HTTP APIs** ("mixed content"). So the API
+> must eventually be served over HTTPS with a domain (Caddy — see *Part 3*). Until the
+> domain is ready you can still deploy and test the backend locally / on the VPS via
+> SSH, but the Vercel site won't be able to call it yet.
 
 ---
 
@@ -13,19 +32,22 @@ Follow the steps in order — each one takes 1–5 minutes except the first buil
 
 - A VPS running **Ubuntu 22.04 or 24.04**, min **2 GB RAM**, root access
 - SSH access configured (key-based — you've done this ✅)
-- The repo URL: `https://github.com/bashirbolarinwa5-arch/Estate_Access_Control.git`
+- A (free) Vercel account — sign in with GitHub
+- A domain for the API (needed for HTTPS before real users use the site)
 
 ---
 
-## 1. Connect to the server
+## Part 1 — Backend on the VPS (compiled JAR, no source)
 
-From your own machine:
+### 1. Connect & install Docker (one time)
+
+From your machine:
 
 ```bash
 ssh root@<SERVER_IP>
 ```
 
-## 2. Install Docker (on the server)
+On the server:
 
 ```bash
 apt update && apt upgrade -y
@@ -33,139 +55,84 @@ curl -fsSL https://get.docker.com | sh
 docker --version && docker compose version    # verify
 ```
 
-## 3. Firewall — only what's needed
+### 2. Firewall
 
 ```bash
 ufw allow OpenSSH      # never lock yourself out of SSH
-ufw allow 80/tcp       # the web app
-ufw allow 8081/tcp     # the API
+ufw allow 8081/tcp     # the API (remove later once Caddy/HTTPS is on)
 ufw enable
 ufw status
 ```
 
-## 4. Get the code (Option A — build from source on the server)
+When Caddy goes live (Part 3), replace `8081/tcp` with `80/tcp` + `443/tcp`.
 
-```bash
-cd /opt
-git clone https://github.com/bashirbolarinwa5-arch/Estate_Access_Control.git estateflow
-cd estateflow
-```
-
-## 5. Create the secrets file
-
-```bash
-cp .env.example .env
-openssl rand -base64 64        # copy the output — this is your JWT_SECRET
-nano .env
-```
-
-Fill in:
-
-| Variable | Value for a fresh VPS (no domain yet) |
-|---|---|
-| `DB_PASSWORD` | a strong password you invent |
-| `JWT_SECRET` | the base64 string from `openssl rand -base64 64` |
-| `WEB_PORT` | `80` (default) |
-| `VITE_API_BASE_URL` | `http://<SERVER_IP>:8081` |
-| `CORS_ALLOWED_ORIGINS` | `http://<SERVER_IP>` |
-
-> The browser loads pages from `http://<SERVER_IP>` and calls the API at
-> `http://<SERVER_IP>:8081` — those two values must match exactly what you
-> browse from, or you'll get CORS errors.
-
-## 6. Build and start everything
-
-```bash
-docker compose up -d --build
-```
-
-First build takes 5–10 minutes (Maven + npm downloads). After it finishes:
-
-```bash
-docker compose ps          # all three services should be Up
-docker compose logs -f backend    # watch the API boot; Ctrl+C to exit
-```
-
-The app is now live at **http://<SERVER_IP>** 🎉
-
-## 7. Seed the first administrator (one time)
-
-Public signup can only create residents, so the first admin is seeded manually:
-
-```bash
-# 1) generate a BCrypt hash for your admin password — run this on YOUR
-#    machine or any machine with Node.js:
-npx bcrypt-cli "YourAdminPassword1!" 10
-#    (or use any BCrypt generator producing a $2a$10$… / $2b$10$… string)
-
-# 2) insert the admin (paste your hash — keep the quotes):
-docker compose exec db psql -U postgres -d estateflow \
-  -c "INSERT INTO users (username, password, role) VALUES ('admin', '$2a$10$<paste-hash-here>', 'ROLE_ADMIN');"
-```
-
-Log in at `http://<SERVER_IP>` with that admin, then create residents and
-security personnel from the dashboard — their logins are created automatically.
-
-## 8. Deploying an update (later)
-
-```bash
-cd /opt/estateflow
-git pull
-docker compose up -d --build
-```
-
-Only changed layers rebuild; the database is untouched.
-
----
-
-## 📦 Option B — deploy compiled artifacts only (no source on the server)
-
-Option A clones the repo and builds **on** the server. In production you usually
-don't want `src/`, `pom.xml` or `package.json` on the target machine. Spring Boot
-packages every dependency inside the executable JAR, so the server only needs
-the built artifacts.
-
-### On your machine (one command)
+### 3. Build the release package (on your machine)
 
 ```powershell
-.\build-release.ps1 -ApiBaseUrl "http://<SERVER_IP>:8081"
+.\build-release.ps1
 ```
 
-The script builds the backend JAR, builds the React bundle with the API URL baked
-in, and stages a `release/` folder that contains **only deployable artifacts**:
+This compiles the executable Spring Boot JAR and stages a backend-only package:
 
 ```
 release/
-  backend/app.jar            ← compiled Spring Boot executable JAR (all deps inside)
+  backend/app.jar            ← compiled executable JAR (all dependencies inside)
   backend/Dockerfile         ← JRE 17 runtime only — no Maven, no source
-  frontend/dist/...          ← built React bundle
-  frontend/Dockerfile        ← nginx runtime only — no Node, no source
-  frontend/nginx.conf
-  docker-compose.prod.yml    ← db + api + web
+  docker-compose.prod.yml    ← db + api (+ commented Caddy service)
+  Caddyfile.example          ← HTTPS template for later
   .env.example
 ```
 
-### Copy to the server and start
+### 4. Upload and start
 
 ```bash
 scp -r release/* root@<SERVER_IP>:/opt/estateflow/
 ssh root@<SERVER_IP>
 cd /opt/estateflow
-cp .env.example .env && nano .env
-#   DB_PASSWORD, JWT_SECRET, WEB_PORT=80,
-#   VITE_API_BASE_URL=http://<SERVER_IP>:8081   ← must match the -ApiBaseUrl
-#   CORS_ALLOWED_ORIGINS=http://<SERVER_IP>       you built the bundle with
-docker compose -f docker-compose.prod.yml up -d
+cp .env.example .env
+openssl rand -base64 64       # copy output → JWT_SECRET
+nano .env
 ```
 
-First startup pulls the base images (JRE 17, nginx, Postgres) in minutes — no
-compile step at all. Then seed the first admin exactly as in **step 7**, and use
-the same firewall/backup steps.
+Fill in:
 
-### Deploying an update (Option B)
+| Variable | Value |
+|---|---|
+| `DB_PASSWORD` | a strong password you invent |
+| `JWT_SECRET` | the base64 string from `openssl rand -base64 64` |
+| `CORS_ALLOWED_ORIGINS` | your Vercel URL, e.g. `https://estateflow.vercel.app` (add preview URLs comma-separated; `https://*.vercel.app` is allowed too) |
+
+Start it:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml ps       # db + api should be Up
+docker compose -f docker-compose.prod.yml logs -f backend   # Ctrl+C to exit
+```
+
+First startup only pulls base images (JRE, Postgres) — minutes, no compiling.
+
+### 5. Seed the platform owner (one time)
+
+Public signup only creates residents, so the SUPER_ADMIN is seeded manually:
+
+```bash
+docker compose -f docker-compose.prod.yml exec -T db \
+  psql -U postgres -d estateflow < create-platform-owner.sql
+```
+
+> The seed file creates username `Adeyemi` (ROLE_SUPER_ADMIN, no estate). On a **fresh**
+> database this just works — the `users_role_check` constraint issue only existed on the
+> old local dev database. Log in as `Adeyemi`, then create your first estate and its
+> admin from the Platform Owner dashboard.
+
+To seed a regular estate admin instead, use the Platform Owner dashboard (never raw SQL) —
+passwords are BCrypt-encoded automatically.
+
+### 6. Deploying a backend update
 
 ```powershell
-.\build-release.ps1 -ApiBaseUrl "http://<SERVER_IP>:8081"
+.\build-release.ps1
 scp -r release/* root@<SERVER_IP>:/opt/estateflow/
 ```
 
@@ -174,23 +141,73 @@ cd /opt/estateflow
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-Only the JAR and bundle changed — images rebuild in seconds and the database
-volume is untouched.
+Only the JAR changed — the image rebuilds in seconds and the database volume is untouched.
 
-> **Which option?** Option B is the recommended production flow (small attack
-> surface, fast server deploys). Option A is convenient for a quick trial on the
-> VPS. When we add CI/CD later, it automates Option B on every push.
+> *(Quick-trial alternative: `git clone` the repo on the server and `docker compose up -d --build`
+> with the dev `docker-compose.yml` — builds Maven + npm on the server. Fine for a look-see,
+> not for production.)*
+
+---
+
+## Part 2 — Frontend on Vercel
+
+The repo already contains `estateflow-frontend/vercel.json` (SPA rewrites so React Router
+paths like `/security` work on refresh).
+
+1. Go to **vercel.com** → **Add New… → Project** → import `bashirbolarinwa5-arch/Estate_Access_Control`.
+2. **Root Directory:** `estateflow-frontend` ← important, the frontend is a subfolder.
+3. Framework preset **Vite** is auto-detected (build `npm run build`, output `dist`).
+4. **Environment Variables** (before the first deploy):
+   | Name | Value |
+   |---|---|
+   | `VITE_API_BASE_URL` | the API address browsers will call, e.g. `https://api.your-domain.com` (after Part 3). Vite inlines it at build time. |
+5. **Deploy.** Vercel gives you `https://<project>.vercel.app`.
+6. Back on the VPS: put that Vercel URL into `CORS_ALLOWED_ORIGINS` in `.env`, then:
+   ```bash
+   docker compose -f docker-compose.prod.yml up -d
+   ```
+   (recreates the API with the new CORS value).
+
+**Preview deployments:** every commit/PR also gets a temporary `*.vercel.app` URL. Either
+add them to `CORS_ALLOWED_ORIGINS` or use `https://*.vercel.app` once and cover them all
+(the backend uses origin *patterns*, so wildcards are credential-safe).
+
+Later: in the Vercel project → **Domains**, add your custom domain (e.g. `app.yourdomain.com`)
+and point its DNS at Vercel — certificates are automatic.
+
+---
+
+## Part 3 — HTTPS for the API (required for production)
+
+1. Buy/choose a domain; add a DNS **A record**: `api.your-domain.com` → `<SERVER_IP>`.
+2. On the server:
+   ```bash
+   cd /opt/estateflow
+   cp Caddyfile.example Caddyfile      # edit the domain inside
+   ufw allow 80/tcp && ufw allow 443/tcp
+   ufw delete allow 8081/tcp           # API now only reachable through Caddy
+   nano docker-compose.prod.yml        # uncomment the caddy service + volumes
+   ```
+3. ```bash
+   docker compose -f docker-compose.prod.yml up -d
+   ```
+   Caddy obtains and renews the Let's Encrypt certificate automatically.
+4. In Vercel: set `VITE_API_BASE_URL=https://api.your-domain.com` and **redeploy**
+   (the value is baked into the bundle at build time).
+5. Update `CORS_ALLOWED_ORIGINS=https://app-or-project.vercel.app` (unchanged unless
+   the frontend domain changed too).
 
 ---
 
 ## 🔧 Everyday server commands
 
 ```bash
-docker compose ps                    # what's running
-docker compose logs -f backend       # API logs (errors show here)
-docker compose restart backend       # restart one service
-docker compose down                  # stop everything (data volume survives)
-docker compose up -d                 # start again
+cd /opt/estateflow
+docker compose -f docker-compose.prod.yml ps                    # what's running
+docker compose -f docker-compose.prod.yml logs -f backend       # API logs (errors show here)
+docker compose -f docker-compose.prod.yml restart backend       # restart one service
+docker compose -f docker-compose.prod.yml down                  # stop (data volume survives)
+docker compose -f docker-compose.prod.yml up -d                 # start again
 ```
 
 ---
@@ -200,38 +217,26 @@ docker compose up -d                 # start again
 Daily database dump at 2 AM, kept for 7 days:
 
 ```bash
+mkdir -p /opt/backups
 crontab -e
 # add this line:
-0 2 * * * docker compose -f /opt/estateflow/docker-compose.yml exec -T db \
+0 2 * * * docker compose -f /opt/estateflow/docker-compose.prod.yml exec -T db \
   pg_dump -U postgres estateflow | gzip > /opt/backups/estateflow-$(date +\%F).sql.gz && \
   find /opt/backups -name "*.sql.gz" -mtime +7 -delete
 ```
-
-```bash
-mkdir -p /opt/backups       # create the folder first
-```
-
----
-
-## 🌐 Adding the domain later (HTTPS)
-
-When a domain is pointed at the server, the plan is:
-
-1. DNS: `app.yourdomain.com` → server IP, `api.yourdomain.com` → server IP
-2. Add a **Caddy** service to `docker-compose.yml` (automatic HTTPS certificates) in front of web + api
-3. Update `.env`: `VITE_API_BASE_URL=https://api.yourdomain.com`, `CORS_ALLOWED_ORIGINS=https://app.yourdomain.com`
-4. `docker compose up -d --build`
 
 ---
 
 ## ✅ Deployment checklist
 
 - [ ] Docker installed, `docker compose version` works
-- [ ] UFW: only 22 / 80 / 8081 open
-- [ ] `.env` created on the server — real `DB_PASSWORD` + fresh `JWT_SECRET`
-- [ ] `VITE_API_BASE_URL` + `CORS_ALLOWED_ORIGINS` match the server IP/domain
-- [ ] `docker compose up -d --build` — all 3 containers Up
-- [ ] First admin seeded, logged in successfully
+- [ ] UFW: 22 + 8081 open (→ 22/80/443 once Caddy is on)
+- [ ] `release/` uploaded, `.env` created with real `DB_PASSWORD` + fresh `JWT_SECRET`
+- [ ] `docker compose -f docker-compose.prod.yml up -d` — db + api Up
+- [ ] Platform owner seeded (`Adeyemi`), login works, first estate + admin created
+- [ ] Vercel project deployed with `VITE_API_BASE_URL` set
+- [ ] `CORS_ALLOWED_ORIGINS` matches the Vercel URL, API recreated
+- [ ] **HTTPS live** (Caddy + domain) — mixed-content blocker cleared
 - [ ] Cron backup running
 - [ ] **Test accounts created during testing deleted**
 
@@ -242,6 +247,9 @@ When a domain is pointed at the server, the plan is:
 | Symptom | Fix |
 |---|---|
 | Backend exits immediately | `docker compose logs backend` — 99%: wrong/missing `DB_PASSWORD` or `JWT_SECRET` in `.env` |
-| CORS errors in the browser console | `CORS_ALLOWED_ORIGINS` in `.env` doesn't exactly match the address in the browser bar → fix, then `docker compose up -d --build frontend` (the API URL is baked at build time) |
-| Port 80 already in use | something else owns port 80 → `docker compose down` other stacks, or set a different `WEB_PORT` |
-| Forgot admin password | seed a new admin row (step 7), log in, delete the old one |
+| CORS errors in the browser console | `CORS_ALLOWED_ORIGINS` in `.env` doesn't include the exact Vercel URL → fix, then `docker compose -f docker-compose.prod.yml up -d` |
+| "Blocked mixed content" in the browser | the HTTPS Vercel site is calling the HTTP API → finish Part 3 (Caddy + domain) |
+| Vercel build fails | check Root Directory is `estateflow-frontend` and `VITE_API_BASE_URL` is set in project env vars |
+| Deep links 404 on Vercel refresh | `vercel.json` rewrites missing → it's committed in `estateflow-frontend/` |
+| Port 80/443 already in use | something else owns them → `docker compose down` other stacks |
+| Forgot a password | SUPER_ADMIN → reset from the dashboard; forgot `Adeyemi`'s → seed a new hash like step 5 |

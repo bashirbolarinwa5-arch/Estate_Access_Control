@@ -1,24 +1,26 @@
 # =====================================================================
-#  EstateFlow — build the production release package
+#  EstateFlow — build the production release package (BACKEND ONLY)
 #
-#  Produces a  release/  folder that contains ONLY deployable
-#  artifacts (compiled Spring Boot JAR, built frontend bundle,
-#  compose file, .env template). Copy that folder to the server —
-#  no source code (src/, pom.xml, package.json) leaves this machine.
+#  Deployment topology:
+#    - Backend (Spring Boot JAR + PostgreSQL) → your VPS via Docker
+#    - Frontend (React)                       → Vercel
+#
+#  The VPS therefore receives ONLY backend artifacts:
+#
+#    release/
+#      backend/app.jar         compiled executable JAR (all deps inside)
+#      backend/Dockerfile      JRE 17 runtime, no Maven, no source
+#      docker-compose.prod.yml db + api (+ optional Caddy for HTTPS)
+#      Caddyfile.example       HTTPS reverse-proxy template
+#      .env.example
+#
+#  No source code (src/, pom.xml) ever leaves this machine, and the
+#  frontend is NOT staged here — Vercel builds it from the GitHub repo.
 #
 #  Usage (PowerShell, from the project root):
 #
-#    .\build-release.ps1 -ApiBaseUrl "http://<SERVER_IP>:8081"
-#
-#  -ApiBaseUrl is baked into the frontend bundle at build time and
-#  must be the address users' browsers will call (same value as
-#  VITE_API_BASE_URL in the server's .env).
+#    .\build-release.ps1
 # =====================================================================
-
-param(
-    [Parameter(Mandatory = $false)]
-    [string]$ApiBaseUrl = "http://localhost:8081"
-)
 
 $ErrorActionPreference = "Stop"
 
@@ -26,15 +28,14 @@ $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $root
 
 Write-Host ""
-Write-Host "=== EstateFlow release build ===" -ForegroundColor Cyan
-Write-Host "Frontend API base URL: $ApiBaseUrl"
+Write-Host "=== EstateFlow backend release build ===" -ForegroundColor Cyan
 Write-Host ""
 
 # ---------------------------------------------------------------------
 # 1. Backend — compile the executable Spring Boot JAR
 # ---------------------------------------------------------------------
 
-Write-Host ">>> [1/4] Packaging the Spring Boot JAR (tests skipped)..." -ForegroundColor Yellow
+Write-Host ">>> [1/3] Packaging the Spring Boot JAR (tests skipped)..." -ForegroundColor Yellow
 
 & .\mvnw.cmd -q -DskipTests package
 
@@ -53,31 +54,10 @@ if (-not $jar) {
 Write-Host "    JAR: $($jar.Name) ($([math]::Round($jar.Length / 1MB, 1)) MB)" -ForegroundColor Green
 
 # ---------------------------------------------------------------------
-# 2. Frontend — build the static bundle (Vite inlines the API URL)
+# 2. Stage the backend-only release package
 # ---------------------------------------------------------------------
 
-Write-Host ">>> [2/4] Building the React bundle..." -ForegroundColor Yellow
-
-Push-Location "estateflow-frontend"
-
-$env:VITE_API_BASE_URL = $ApiBaseUrl
-
-& npm.cmd run build
-
-if ($LASTEXITCODE -ne 0) {
-    Pop-Location
-    throw "Frontend build failed. Fix the build errors and re-run."
-}
-
-Pop-Location
-
-Write-Host "    dist/ built with VITE_API_BASE_URL=$ApiBaseUrl" -ForegroundColor Green
-
-# ---------------------------------------------------------------------
-# 3. Stage the release package
-# ---------------------------------------------------------------------
-
-Write-Host ">>> [3/4] Staging the release package..." -ForegroundColor Yellow
+Write-Host ">>> [2/3] Staging the release package..." -ForegroundColor Yellow
 
 $release = Join-Path $root "release"
 
@@ -86,44 +66,43 @@ if (Test-Path $release) {
 }
 
 New-Item -ItemType Directory -Path (Join-Path $release "backend") | Out-Null
-New-Item -ItemType Directory -Path (Join-Path $release "frontend") | Out-Null
 
-# Backend: executable JAR + its Dockerfile (runtime only)
+# Compiled executable JAR + its runtime-only Dockerfile
 Copy-Item $jar.FullName (Join-Path $release "backend\app.jar")
 Copy-Item (Join-Path $root "docker\backend-jar.Dockerfile") (Join-Path $release "backend\Dockerfile")
 
-# Frontend: built bundle + nginx config + its Dockerfile
-Copy-Item (Join-Path $root "docker\frontend-dist.Dockerfile") (Join-Path $release "frontend\Dockerfile")
-Copy-Item (Join-Path $root "estateflow-frontend\nginx.conf") (Join-Path $release "frontend\nginx.conf")
-Copy-Item (Join-Path $root "estateflow-frontend\dist") (Join-Path $release "frontend\dist") -Recurse
-
-# Orchestration + configuration template
+# Orchestration + configuration templates
 Copy-Item (Join-Path $root "docker-compose.prod.yml") $release
+Copy-Item (Join-Path $root "Caddyfile.example") $release
 Copy-Item (Join-Path $root ".env.example") $release
 
 # ---------------------------------------------------------------------
-# 4. Summary
+# 3. Summary
 # ---------------------------------------------------------------------
 
-Write-Host ">>> [4/4] Release package ready:" -ForegroundColor Yellow
+Write-Host ">>> [3/3] Release package ready:" -ForegroundColor Yellow
 
 Get-ChildItem $release -Recurse -File |
     ForEach-Object {
         $relative = $_.FullName.Substring($release.Length + 1)
-        Write-Host ("    {0,-45} {1,8:N0} KB" -f $relative, ($_.Length / 1KB))
+        Write-Host ("    {0,-40} {1,8:N0} KB" -f $relative, ($_.Length / 1KB))
     }
 
 Write-Host ""
-Write-Host "=== NEXT STEPS (copy the release/ folder to the server) ===" -ForegroundColor Cyan
+Write-Host "=== NEXT STEPS ===" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  scp -r release/* root@<SERVER_IP>:/opt/estateflow/"
+Write-Host "  1. Copy the backend package to the VPS:"
+Write-Host "       scp -r release/* root@<SERVER_IP>:/opt/estateflow/"
 Write-Host ""
-Write-Host "  Then on the server:"
-Write-Host "    cd /opt/estateflow"
-Write-Host "    cp .env.example .env      # then edit: DB_PASSWORD, JWT_SECRET,"
-Write-Host "                              # VITE_API_BASE_URL=$ApiBaseUrl, CORS_ALLOWED_ORIGINS"
-Write-Host "    docker compose -f docker-compose.prod.yml up -d"
+Write-Host "  2. On the server:"
+Write-Host "       cd /opt/estateflow"
+Write-Host "       cp .env.example .env     # DB_PASSWORD, JWT_SECRET,"
+Write-Host "                                # CORS_ALLOWED_ORIGINS=<vercel URL>"
+Write-Host "       docker compose -f docker-compose.prod.yml up -d"
 Write-Host ""
-Write-Host "NOTE: if the server .env value differs from the -ApiBaseUrl used here,"
-Write-Host "      re-run this script so the bundle and .env agree." -ForegroundColor Magenta
+Write-Host "  3. Deploy the frontend on Vercel (repo import, root directory:"
+Write-Host "     estateflow-frontend, VITE_API_BASE_URL=<API address>)"
+Write-Host ""
+Write-Host "NOTE: browsers block HTTP APIs called from the HTTPS Vercel site." -ForegroundColor Magenta
+Write-Host "      Serve the API over HTTPS (Caddy + a domain) before going live." -ForegroundColor Magenta
 Write-Host ""

@@ -1,18 +1,20 @@
 # =============================================================
-#  EstateFlow — PRODUCTION compose (prebuilt artifacts only)
+#  EstateFlow — PRODUCTION compose (backend + database only)
+#
+#  Topology: the React frontend is hosted on Vercel; this file
+#  deploys ONLY the API and its database to the VPS.
 #
 #  Deploy package (created by build-release.ps1):
 #
 #    release/
-#      backend/          → app.jar + Dockerfile      (compiled JAR)
-#      frontend/         → dist/ + nginx.conf + Dockerfile (built bundle)
+#      backend/            → app.jar + Dockerfile (compiled JAR)
 #      docker-compose.prod.yml
+#      Caddyfile.example   → HTTPS template (enable with a domain)
 #      .env.example
 #
-#  No source code (src/, pom.xml, package.json) ever reaches
-#  the server. Usage on the server:
+#  Usage on the server:
 #
-#    1. cp .env.example .env      (fill in real values)
+#    1. cp .env.example .env        (fill in real values)
 #    2. docker compose -f docker-compose.prod.yml up -d
 # =============================================================
 
@@ -47,7 +49,9 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/estateflow
       DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost}
+      # The ORIGIN of the Vercel-hosted frontend (patterns OK,
+      # e.g. https://your-app.vercel.app — comma-separated).
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
     ports:
       - "8081:8081"
     depends_on:
@@ -55,17 +59,37 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # ---------- React app (nginx, prebuilt dist) ----------
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: estateflow-web
-    ports:
-      - "${WEB_PORT:-80}:80"
-    depends_on:
-      - backend
-    restart: unless-stopped
+  # =============================================================
+  #  OPTIONAL — HTTPS reverse proxy (enable when you have a domain)
+  #
+  #  Browsers BLOCK HTTP API calls made from the HTTPS Vercel site
+  #  ("mixed content"), so production needs the API served over
+  #  HTTPS. Caddy obtains and renews certificates automatically.
+  #
+  #  1. Point api.your-domain.com (A record) at the VPS IP
+  #  2. cp Caddyfile.example Caddyfile   (edit the domain)
+  #  3. Uncomment the service below and the volume at the bottom
+  #  4. docker compose -f docker-compose.prod.yml up -d
+  #
+  #  Then the frontend's VITE_API_BASE_URL becomes
+  #  https://api.your-domain.com and port 8081 can be closed in
+  #  the firewall (ufw delete allow 8081/tcp).
+  # =============================================================
+  # caddy:
+  #   image: caddy:2-alpine
+  #   container_name: estateflow-caddy
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./Caddyfile:/etc/caddy/Caddyfile:ro
+  #     - caddy-data:/data
+  #     - caddy-config:/config
+  #   depends_on:
+  #     - backend
+  #   restart: unless-stopped
 
 volumes:
   estateflow-db:
+  # caddy-data:
+  # caddy-config:

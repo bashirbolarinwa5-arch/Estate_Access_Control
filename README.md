@@ -199,7 +199,7 @@ Files involved:
 
 Notes:
 - Full step-by-step server setup (Docker install, firewall, admin seeding, backups, troubleshooting): **[DEPLOYMENT.md](DEPLOYMENT.md)**.
-- **Production deploys don't need source code on the server**: `build-release.ps1` stages a compiled-JAR + built-frontend package (`release/`) — see DEPLOYMENT.md → *Option B*.
+- **Deployment topology: backend on a VPS, frontend on Vercel.** `build-release.ps1` stages a backend-only package (compiled JAR, no source) for the VPS; the React app deploys from `estateflow-frontend/` to Vercel — see **[DEPLOYMENT.md](DEPLOYMENT.md)**.
 - The API URL for the browser defaults to `http://localhost:8081`. Deploying the web build elsewhere? Pass `--build-arg VITE_API_BASE_URL=https://api.your-domain.com` (Vite inlines it at build time).
 - `CORS_ALLOWED_ORIGINS` must include the origin users browse from, e.g. `http://localhost:5173`.
 

@@ -39,7 +39,15 @@ public class SecurityConfig {
 
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOrigins(
+        /*
+         * Vercel deployments (including per-commit preview
+         * URLs like estateflow-git-xxx.vercel.app) are matched
+         * with origin PATTERNS. Exact origins also work as
+         * patterns, so comma-separated values like
+         *   https://app.example.com,https://*.vercel.app
+         * all work. Unlike "*", patterns stay credential-safe.
+         */
+        configuration.setAllowedOriginPatterns(
                 Arrays.stream(allowedOrigins.split(","))
                         .map(String::trim)
                         .filter(origin -> !origin.isEmpty())

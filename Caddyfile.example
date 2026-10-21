@@ -1,0 +1,19 @@
+# =============================================================
+#  EstateFlow — Caddy HTTPS template (backend API)
+#
+#  1. Point the DNS A record of your API subdomain at the VPS IP:
+#         api.your-domain.com  →  <SERVER_IP>
+#  2. Copy this file and edit the domain:
+#         cp Caddyfile.example Caddyfile
+#  3. Uncomment the caddy service + volumes in docker-compose.prod.yml
+#  4. docker compose -f docker-compose.prod.yml up -d
+#
+#  Caddy obtains and renews the Let's Encrypt certificate
+#  automatically — no certbot, no manual renewal.
+# =============================================================
+
+api.your-domain.com {
+    # Everything hitting https://api.your-domain.com is proxied
+    # to the Spring Boot container over the internal network.
+    reverse_proxy backend:8081
+}
