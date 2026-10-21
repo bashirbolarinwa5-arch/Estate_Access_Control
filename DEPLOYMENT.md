@@ -43,7 +43,7 @@ ufw enable
 ufw status
 ```
 
-## 4. Get the code
+## 4. Get the code (Option A — build from source on the server)
 
 ```bash
 cd /opt
@@ -115,6 +115,71 @@ docker compose up -d --build
 ```
 
 Only changed layers rebuild; the database is untouched.
+
+---
+
+## 📦 Option B — deploy compiled artifacts only (no source on the server)
+
+Option A clones the repo and builds **on** the server. In production you usually
+don't want `src/`, `pom.xml` or `package.json` on the target machine. Spring Boot
+packages every dependency inside the executable JAR, so the server only needs
+the built artifacts.
+
+### On your machine (one command)
+
+```powershell
+.\build-release.ps1 -ApiBaseUrl "http://<SERVER_IP>:8081"
+```
+
+The script builds the backend JAR, builds the React bundle with the API URL baked
+in, and stages a `release/` folder that contains **only deployable artifacts**:
+
+```
+release/
+  backend/app.jar            ← compiled Spring Boot executable JAR (all deps inside)
+  backend/Dockerfile         ← JRE 17 runtime only — no Maven, no source
+  frontend/dist/...          ← built React bundle
+  frontend/Dockerfile        ← nginx runtime only — no Node, no source
+  frontend/nginx.conf
+  docker-compose.prod.yml    ← db + api + web
+  .env.example
+```
+
+### Copy to the server and start
+
+```bash
+scp -r release/* root@<SERVER_IP>:/opt/estateflow/
+ssh root@<SERVER_IP>
+cd /opt/estateflow
+cp .env.example .env && nano .env
+#   DB_PASSWORD, JWT_SECRET, WEB_PORT=80,
+#   VITE_API_BASE_URL=http://<SERVER_IP>:8081   ← must match the -ApiBaseUrl
+#   CORS_ALLOWED_ORIGINS=http://<SERVER_IP>       you built the bundle with
+docker compose -f docker-compose.prod.yml up -d
+```
+
+First startup pulls the base images (JRE 17, nginx, Postgres) in minutes — no
+compile step at all. Then seed the first admin exactly as in **step 7**, and use
+the same firewall/backup steps.
+
+### Deploying an update (Option B)
+
+```powershell
+.\build-release.ps1 -ApiBaseUrl "http://<SERVER_IP>:8081"
+scp -r release/* root@<SERVER_IP>:/opt/estateflow/
+```
+
+```bash
+cd /opt/estateflow
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Only the JAR and bundle changed — images rebuild in seconds and the database
+volume is untouched.
+
+> **Which option?** Option B is the recommended production flow (small attack
+> surface, fast server deploys). Option A is convenient for a quick trial on the
+> VPS. When we add CI/CD later, it automates Option B on every push.
 
 ---
 
