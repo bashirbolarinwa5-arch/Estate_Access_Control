@@ -76,6 +76,9 @@ Copy-Item (Join-Path $root "docker-compose.prod.yml") $release
 Copy-Item (Join-Path $root "Caddyfile.example") $release
 Copy-Item (Join-Path $root ".env.example") $release
 
+# One-time database seeds (platform owner)
+Copy-Item (Join-Path $root "create-platform-owner.sql") $release
+
 # ---------------------------------------------------------------------
 # 3. Summary
 # ---------------------------------------------------------------------
