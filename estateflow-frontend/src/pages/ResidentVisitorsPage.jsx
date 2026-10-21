@@ -623,6 +623,7 @@ function ResidentVisitorsPage() {
                                         onChange={handleFormChange}
                                         disabled={submitting}
                                         rows={4}
+                                        maxLength={255}
                                     />
 
                                 </div>

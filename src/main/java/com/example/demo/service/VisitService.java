@@ -129,6 +129,17 @@ public class VisitService {
             Visitor visitor,
             String purpose) {
 
+        if (purpose == null || purpose.trim().isEmpty()) {
+            throw new RuntimeException("Visit purpose is required");
+        }
+
+        // The database column is varchar(255) — reject gracefully
+        // instead of letting Postgres throw a 500.
+        if (purpose.trim().length() > 255) {
+            throw new RuntimeException(
+                    "Visit purpose is too long (maximum 255 characters)");
+        }
+
         // The gate/admin creating the walk-in defines the estate.
         Estate estate =
                 currentUserService.getRequiredEstate();
@@ -605,6 +616,13 @@ public class VisitService {
 
         if (purpose == null || purpose.trim().isEmpty()) {
             throw new RuntimeException("Visit purpose is required");
+        }
+
+        // The database column is varchar(255) — reject gracefully
+        // instead of letting Postgres throw a 500.
+        if (purpose.trim().length() > 255) {
+            throw new RuntimeException(
+                    "Visit purpose is too long (maximum 255 characters)");
         }
 
         if (visitDate == null) {

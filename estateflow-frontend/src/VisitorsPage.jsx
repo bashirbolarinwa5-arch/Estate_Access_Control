@@ -1756,6 +1756,7 @@ export default function VisitorsPage() {
                                     onChange={handleChange}
                                     placeholder="e.g. Family visit, delivery, maintenance"
                                     disabled={saving}
+                                    maxLength={255}
                                 />
 
                             </div>

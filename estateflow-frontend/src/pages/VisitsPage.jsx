@@ -2058,6 +2058,7 @@ function VisitsPage() {
                                             event.target.value
                                         )
                                     }
+                                    maxLength={255}
                                     placeholder="e.g. Visiting resident"
                                     rows={4}
                                     disabled={creating}
