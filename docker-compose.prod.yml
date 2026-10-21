@@ -45,6 +45,9 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: estateflow-api
+    networks:
+      - default     # internal: talks to the db service by hostname
+      - proxy       # external: reachable by the shared reverse proxy (Caddy)
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/estateflow
       DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
@@ -93,3 +96,10 @@ volumes:
   estateflow-db:
   # caddy-data:
   # caddy-config:
+
+# External Docker network shared with the VPS's Caddy reverse proxy.
+# Created once on the server:  docker network create proxy
+# and the Caddy container attach: docker network connect proxy jobbot-caddy-1
+networks:
+  proxy:
+    external: true
