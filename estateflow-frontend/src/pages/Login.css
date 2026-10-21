@@ -654,22 +654,3 @@
         font-size: 27px;
     }
 }
-.login-input-wrapper select {
-    width: 100%;
-    height: 100%;
-    border: none;
-    outline: none;
-    background: transparent;
-    color: #172033;
-    font-size: 14px;
-    padding: 0 34px 0 44px;
-    appearance: none;
-    cursor: pointer;
-}
-
-.login-select-icon {
-    position: absolute;
-    right: 14px;
-    color: #8a98ad;
-    pointer-events: none;
-}

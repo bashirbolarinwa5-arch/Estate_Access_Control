@@ -5,7 +5,6 @@ import {
     LockKeyhole,
     UserRound,
     ShieldCheck,
-    ChevronDown,
 } from "lucide-react";
 
 import { login } from "../services/auth";
@@ -16,7 +15,6 @@ import "./Login.css";
 function Login() {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
-    const [role, setRole] = useState("ROLE_ADMIN");
 
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
@@ -34,18 +32,10 @@ function Login() {
             const authData = await login(username, password);
 
             /*
-             * The backend is the authority for the user's real role.
-             * The dropdown does not give the user a role.
+             * The backend is the authority for the user's real role —
+             * the user never needs to announce it.
              */
             const actualRole = authData.role;
-
-            if (actualRole !== role) {
-                throw new Error(
-                    `This account is registered as ${
-    actualRole?.replace("ROLE_", "") || "another role"
-}. Please select the correct role.`
-                );
-            }
 
             loginUser(authData);
 
@@ -137,56 +127,6 @@ function Login() {
                                 className="login-form"
                                 onSubmit={handleSubmit}
                             >
-
-                                {/* ROLE */}
-
-                                <div className="login-field">
-
-                                    <label htmlFor="role">
-                                        Sign in as
-                                    </label>
-
-                                    <div className="login-input-wrapper">
-
-                                        <ShieldCheck
-                                            size={19}
-                                            className="login-input-icon"
-                                        />
-
-                                        <select
-                                            id="role"
-                                            value={role}
-                                            onChange={(event) =>
-                                                setRole(event.target.value)
-                                            }
-                                            disabled={loading}
-                                        >
-                                            <option value="ROLE_ADMIN">
-                                                Administrator
-                                            </option>
-
-                                            <option value="ROLE_SUPER_ADMIN">
-                                                Platform Owner
-                                            </option>
-
-                                            <option value="ROLE_SECURITY">
-                                                Security
-                                            </option>
-
-                                            <option value="ROLE_RESIDENT">
-                                                Resident
-                                            </option>
-                                        </select>
-
-                                        <ChevronDown
-                                            size={17}
-                                            className="login-select-icon"
-                                        />
-
-                                    </div>
-
-                                </div>
-
 
                                 {/* USERNAME */}
 
