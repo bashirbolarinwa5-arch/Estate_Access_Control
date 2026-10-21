@@ -10,6 +10,8 @@ import {
 
 import api from "../services/api";
 
+import { useToast } from "../components/useToast";
+
 import "./SuperAdminPages.css";
 
 /*
@@ -21,6 +23,8 @@ import "./SuperAdminPages.css";
  * are simply refused at the service layer.
  */
 function SuperAdminEstatesPage() {
+
+    const { showSuccess, showError } = useToast();
 
     const [estates, setEstates] = useState([]);
 
@@ -143,15 +147,21 @@ function SuperAdminEstatesPage() {
             setNewName("");
             setNewCode("");
 
+            showSuccess(
+                `${newName.trim()} created — now create its estate admin`
+            );
+
             loadEstates();
 
         } catch (err) {
 
-            setActionError(
+            const message =
                 err.response?.data?.message ||
                 err.message ||
-                "Unable to create the estate."
-            );
+                "Unable to create the estate.";
+
+            showError(message);
+            setActionError(message);
 
         } finally {
             setCreating(false);
@@ -185,15 +195,23 @@ function SuperAdminEstatesPage() {
                 `/super-admin/estates/${estate.id}/${activating ? "activate" : "deactivate"}`
             );
 
+            showSuccess(
+                activating
+                    ? `${estate.estateName} activated — users can log in again`
+                    : `${estate.estateName} deactivated — users blocked from logging in`
+            );
+
             loadEstates();
 
         } catch (err) {
 
-            setActionError(
+            const message =
                 err.response?.data?.message ||
                 err.message ||
-                "Unable to update the estate."
-            );
+                "Unable to update the estate.";
+
+            showError(message);
+            setActionError(message);
         }
     }
 

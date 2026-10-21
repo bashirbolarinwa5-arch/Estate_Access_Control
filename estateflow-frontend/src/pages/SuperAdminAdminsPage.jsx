@@ -12,6 +12,8 @@ import {
 
 import api from "../services/api";
 
+import { useToast } from "../components/useToast";
+
 import "./SuperAdminPages.css";
 
 /*
@@ -25,6 +27,8 @@ import "./SuperAdminPages.css";
  * that is estate-admin work.
  */
 function SuperAdminAdminsPage() {
+
+    const { showSuccess, showError } = useToast();
 
     const [admins, setAdmins] = useState([]);
     const [estates, setEstates] = useState([]);
@@ -177,15 +181,21 @@ function SuperAdminAdminsPage() {
             setNewPassword("");
             setNewEstateId("");
 
+            showSuccess(
+                "Estate administrator created — they can log in immediately"
+            );
+
             loadAdmins();
 
         } catch (err) {
 
-            setActionError(
+            const message =
                 err.response?.data?.message ||
                 err.message ||
-                "Unable to create the administrator."
-            );
+                "Unable to create the administrator.";
+
+            showError(message);
+            setActionError(message);
 
         } finally {
             setCreating(false);
@@ -221,15 +231,19 @@ function SuperAdminAdminsPage() {
 
             setEditingAdmin(null);
 
+            showSuccess("Administrator renamed successfully");
+
             loadAdmins();
 
         } catch (err) {
 
-            setActionError(
+            const message =
                 err.response?.data?.message ||
                 err.message ||
-                "Unable to update the administrator."
-            );
+                "Unable to update the administrator.";
+
+            showError(message);
+            setActionError(message);
 
         } finally {
             setSavingEdit(false);
@@ -263,15 +277,23 @@ function SuperAdminAdminsPage() {
                 `/super-admin/admins/${admin.id}/${enabling ? "enable" : "disable"}`
             );
 
+            showSuccess(
+                enabling
+                    ? "Account re-enabled — they can log in again"
+                    : "Administrator disabled — locked out immediately"
+            );
+
             loadAdmins();
 
         } catch (err) {
 
-            setActionError(
+            const message =
                 err.response?.data?.message ||
                 err.message ||
-                "Unable to update the account."
-            );
+                "Unable to update the account.";
+
+            showError(message);
+            setActionError(message);
         }
     }
 
@@ -299,13 +321,19 @@ function SuperAdminAdminsPage() {
             setResettingAdmin(null);
             setResetPassword("");
 
+            showSuccess(
+                "Password reset — share the new password securely"
+            );
+
         } catch (err) {
 
-            setActionError(
+            const message =
                 err.response?.data?.message ||
                 err.message ||
-                "Unable to reset the password."
-            );
+                "Unable to reset the password.";
+
+            showError(message);
+            setActionError(message);
 
         } finally {
             setSavingReset(false);
