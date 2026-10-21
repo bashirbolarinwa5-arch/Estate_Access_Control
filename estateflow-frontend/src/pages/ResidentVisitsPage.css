@@ -387,13 +387,7 @@
     vertical-align: middle;
 }
 
-.visits-table tbody tr {
-    transition: background 0.15s ease;
-}
-
-.visits-table tbody tr:hover {
-    background: #f8fafc;
-}
+/* rows are display-only: interactions live in the action buttons */
 
 .visitor-cell {
     display: flex;

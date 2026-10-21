@@ -673,16 +673,6 @@ export default function VisitorsPage() {
                    TABLE ROWS
                 ========================= */
 
-                .visitor-table tbody tr {
-                    transition:
-                        background .16s ease,
-                        box-shadow .16s ease;
-                }
-
-                .visitor-table tbody tr:hover {
-                    background: #fbfdff;
-                }
-
                 .visitor-table tbody tr:last-child td {
                     border-bottom: none;
                 }

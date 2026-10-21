@@ -544,10 +544,6 @@ export default function ResidentsPage() {
     border-bottom: 1px solid #f0f2f6;
 }
 
-.resident-table tbody tr:hover {
-    background: #fbfcff;
-}
-
 .resident-person {
     display: flex;
     align-items: center;

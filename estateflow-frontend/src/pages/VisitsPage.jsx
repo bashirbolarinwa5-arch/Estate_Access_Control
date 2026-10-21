@@ -759,14 +759,6 @@ function VisitsPage() {
                     vertical-align: middle;
                 }
 
-                .visit-table tbody tr {
-                    transition: background .15s ease;
-                }
-
-                .visit-table tbody tr:hover {
-                    background: #fbfdff;
-                }
-
                 .visit-table tbody tr:last-child td {
                     border-bottom: none;
                 }

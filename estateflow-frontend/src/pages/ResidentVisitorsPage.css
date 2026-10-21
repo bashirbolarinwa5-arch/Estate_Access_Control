@@ -408,17 +408,6 @@
     border-radius: 20px;
 
     box-sizing: border-box;
-
-    transition:
-            transform 0.2s ease,
-            box-shadow 0.2s ease,
-            border-color 0.2s ease;
-}
-
-.resident-visitor-card:hover {
-    border-color: #cdd9ee;
-    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.07);
-    transform: translateY(-2px);
 }
 
 .resident-visitor-card-top {

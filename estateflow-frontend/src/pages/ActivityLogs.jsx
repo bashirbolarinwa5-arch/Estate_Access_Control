@@ -528,14 +528,6 @@ function ActivityLogs() {
     vertical-align: middle;
 }
 
-.activity-table tbody tr {
-    transition: .15s ease;
-}
-
-.activity-table tbody tr:hover {
-    background: #fbfdff;
-}
-
 .activity-table tbody tr:last-child td {
     border-bottom: none;
 }

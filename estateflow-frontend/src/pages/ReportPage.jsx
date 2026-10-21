@@ -447,13 +447,6 @@ function ReportsPage() {
                     padding: 21px;
                     box-shadow:
                         0 8px 25px rgba(30, 50, 85, .035);
-                    transition: .2s ease;
-                }
-
-                .reports-stat-card:hover {
-                    transform: translateY(-2px);
-                    box-shadow:
-                        0 12px 30px rgba(30, 50, 85, .06);
                 }
 
                 .reports-stat-top {
@@ -653,14 +646,6 @@ function ReportsPage() {
                     font-size: 13px;
                     vertical-align: middle;
                     white-space: nowrap;
-                }
-
-                .reports-table tbody tr {
-                    transition: background .15s ease;
-                }
-
-                .reports-table tbody tr:hover {
-                    background: #fbfdff;
                 }
 
                 .reports-table tbody tr:last-child td {

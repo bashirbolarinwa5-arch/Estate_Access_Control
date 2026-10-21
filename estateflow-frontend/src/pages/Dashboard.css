@@ -182,11 +182,7 @@
     background: rgba(37, 99, 235, 0.035);
 }
 
-.stat-card:hover {
-    transform: translateY(-3px);
-    border-color: #d5dfef;
-    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
-}
+/* stat cards are display-only: no hover animation, no cursor hint */
 
 .stat-icon {
     width: 46px;
@@ -237,12 +233,6 @@
 
 .stat-arrow {
     color: #a0aec0;
-    transition: 0.2s ease;
-}
-
-.stat-card:hover .stat-arrow {
-    color: #2563eb;
-    transform: translateX(3px);
 }
 
 .stat-value {
