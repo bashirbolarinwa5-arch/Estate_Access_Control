@@ -22,6 +22,8 @@ import {
 import "./Dashboard.css";
 import api from "../services/api";
 
+import { useToast } from "../components/useToast";
+
 
 function Dashboard() {
     const { user } = useAuth();
@@ -52,6 +54,8 @@ function Dashboard() {
    ========================================================= */
 
 function AdminDashboard() {
+    const { showError } = useToast();
+
     const [residents, setResidents] = useState([]);
     const [visitors, setVisitors] = useState([]);
     const [visits, setVisits] = useState([]);
@@ -107,11 +111,13 @@ function AdminDashboard() {
                 err
             );
 
-            setError(
+            const message =
                 err.response?.data?.message ||
                 err.message ||
-                "Something went wrong while loading the dashboard."
-            );
+                "Something went wrong while loading the dashboard.";
+
+            showError(message);
+            setError(message);
         } finally {
             setLoading(false);
         }
@@ -502,6 +508,8 @@ function AdminDashboard() {
    ========================================================= */
 
 function SecurityDashboard() {
+    const { showError } = useToast();
+
     const { user } = useAuth();
     const navigate = useNavigate();
 
@@ -550,11 +558,13 @@ function SecurityDashboard() {
                 err
             );
 
-            setError(
+            const message =
                 err.response?.data?.message ||
                 err.message ||
-                "Unable to load security dashboard."
-            );
+                "Unable to load security dashboard.";
+
+            showError(message);
+            setError(message);
         } finally {
             setLoading(false);
         }

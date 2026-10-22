@@ -15,6 +15,8 @@ import {
     X,
 } from "lucide-react";
 
+import { useToast } from "./components/useToast";
+
 const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL ||
     "http://localhost:8081";
@@ -99,6 +101,8 @@ function getInitials(name) {
 }
 
 export default function ResidentsPage() {
+    const { showSuccess, showError } = useToast();
+
     const [residents, setResidents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -228,32 +232,38 @@ export default function ResidentsPage() {
         setSuccess("");
 
         if (!form.fullName.trim()) {
+            showError("Full name is required.");
             setError("Full name is required.");
             return;
         }
 
         if (!form.phoneNumber.trim()) {
+            showError("Phone number is required.");
             setError("Phone number is required.");
             return;
         }
 
         if (!form.houseNumber.trim()) {
+            showError("House number is required.");
             setError("House number is required.");
             return;
         }
 
         if (!form.email.trim()) {
+            showError("Email is required.");
             setError("Email is required.");
             return;
         }
 
         if (!editingResident) {
             if (!form.username.trim()) {
+                showError("Username is required.");
                 setError("Username is required.");
                 return;
             }
 
             if (!form.password.trim()) {
+                showError("Password is required.");
                 setError("Password is required.");
                 return;
             }
@@ -284,6 +294,7 @@ export default function ResidentsPage() {
                 );
 
                 setSuccess("Resident updated successfully.");
+                showSuccess("Resident updated successfully.");
             } else {
                 await apiRequest("/resident", {
                     method: "POST",
@@ -291,6 +302,7 @@ export default function ResidentsPage() {
                 });
 
                 setSuccess("Resident added successfully.");
+                showSuccess("Resident added successfully.");
             }
 
             await loadResidents();
@@ -302,7 +314,10 @@ export default function ResidentsPage() {
                 setSuccess("");
             }, 600);
         } catch (err) {
-            setError(err.message || "Unable to save resident.");
+            const message = err.message || "Unable to save resident.";
+
+            showError(message);
+            setError(message);
         } finally {
             setSaving(false);
         }
@@ -331,12 +346,16 @@ export default function ResidentsPage() {
             );
 
             setSuccess("Resident deleted successfully.");
+            showSuccess("Resident deleted successfully.");
 
             setTimeout(() => {
                 setSuccess("");
             }, 2500);
         } catch (err) {
-            setError(err.message || "Unable to delete resident.");
+            const message = err.message || "Unable to delete resident.";
+
+            showError(message);
+            setError(message);
         }
     }
 

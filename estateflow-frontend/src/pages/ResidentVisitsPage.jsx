@@ -15,9 +15,14 @@ import {
 } from "lucide-react";
 
 import API from "../services/api";
+
+import { useToast } from "../components/useToast";
+
 import "./ResidentVisitsPage.css";
 
 const ResidentVisitsPage = () => {
+    const { showSuccess, showError } = useToast();
+
     const [visits, setVisits] = useState([]);
     const [visitors, setVisitors] = useState([]);
 
@@ -173,21 +178,25 @@ const ResidentVisitsPage = () => {
         setSuccess("");
 
         if (!createForm.visitorId) {
+            showError("Please select a visitor.");
             setError("Please select a visitor.");
             return;
         }
 
         if (!createForm.purpose.trim()) {
+            showError("Please enter the purpose of the visit.");
             setError("Please enter the purpose of the visit.");
             return;
         }
 
         if (!createForm.visitDate) {
+            showError("Please select a visit date.");
             setError("Please select a visit date.");
             return;
         }
 
         if (createForm.visitDate < getTodayDate()) {
+            showError("Visit date cannot be in the past.");
             setError("Visit date cannot be in the past.");
             return;
         }
@@ -218,21 +227,25 @@ const ResidentVisitsPage = () => {
             });
 
             if (createdVisit?.accessCode) {
-                setSuccess(
-                    `Planned visit created successfully. Access code: ${createdVisit.accessCode}`
-                );
+                const message = `Planned visit created successfully. Access code: ${createdVisit.accessCode}`;
+
+                setSuccess(message);
+                showSuccess(message);
             } else {
                 setSuccess("Planned visit created successfully.");
+                showSuccess("Planned visit created successfully.");
             }
 
             await loadVisits();
         } catch (err) {
             console.error("Failed to create planned visit:", err);
 
-            setError(
+            const message =
                 err.response?.data?.message ||
-                "Failed to create planned visit."
-            );
+                "Failed to create planned visit.";
+
+            showError(message);
+            setError(message);
         } finally {
             setCreatingVisit(false);
         }
@@ -247,15 +260,18 @@ const ResidentVisitsPage = () => {
             await API.put(`/visit/me/approve/${id}`);
 
             setSuccess("Visit approved successfully.");
+            showSuccess("Visit approved successfully.");
 
             await loadVisits();
         } catch (err) {
             console.error("Failed to approve visit:", err);
 
-            setError(
+            const message =
                 err.response?.data?.message ||
-                "Failed to approve visit."
-            );
+                "Failed to approve visit.";
+
+            showError(message);
+            setError(message);
         } finally {
             setProcessingId(null);
         }
@@ -270,15 +286,18 @@ const ResidentVisitsPage = () => {
             await API.put(`/visit/me/reject/${id}`);
 
             setSuccess("Visit rejected successfully.");
+            showSuccess("Visit rejected successfully.");
 
             await loadVisits();
         } catch (err) {
             console.error("Failed to reject visit:", err);
 
-            setError(
+            const message =
                 err.response?.data?.message ||
-                "Failed to reject visit."
-            );
+                "Failed to reject visit.";
+
+            showError(message);
+            setError(message);
         } finally {
             setProcessingId(null);
         }
@@ -291,9 +310,11 @@ const ResidentVisitsPage = () => {
         try {
             await navigator.clipboard.writeText(code);
             setSuccess(`Access code ${code} copied to clipboard.`);
+            showSuccess(`Access code ${code} copied to clipboard.`);
             setError("");
         } catch (err) {
             console.error("Failed to copy access code:", err);
+            showError("Failed to copy access code.");
             setError("Failed to copy access code.");
         }
     };

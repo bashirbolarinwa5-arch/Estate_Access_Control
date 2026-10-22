@@ -13,6 +13,7 @@ import {
     Activity,
     UserCog,
     Building2,
+    KeyRound,
 } from "lucide-react";
 
 import {
@@ -26,6 +27,7 @@ import {
 import "./index.css";
 
 import Login from "./pages/Login";
+import ChangePasswordPage from "./pages/ChangePasswordPage";
 import Dashboard from "./pages/Dashboard";
 import ResidentsPage from "./ResidentsPage";
 import VisitorsPage from "./VisitorsPage";
@@ -129,6 +131,12 @@ function Sidebar({
             path: "/activity-logs",
         },
 
+        {
+            name: "Account",
+            icon: <KeyRound size={20} />,
+            path: "/account/password",
+        },
+
     ];
 
 
@@ -168,6 +176,12 @@ function Sidebar({
             path: "/activity-logs",
         },
 
+        {
+            name: "Account",
+            icon: <KeyRound size={20} />,
+            path: "/account/password",
+        },
+
     ];
 
 
@@ -201,6 +215,12 @@ function Sidebar({
             path: "/resident/visits",
         },
 
+        {
+            name: "Account",
+            icon: <KeyRound size={20} />,
+            path: "/account/password",
+        },
+
     ];
 
 
@@ -232,6 +252,12 @@ function Sidebar({
             name: "System Activity",
             icon: <Activity size={20} />,
             path: "/super-admin/activity",
+        },
+
+        {
+            name: "Account",
+            icon: <KeyRound size={20} />,
+            path: "/account/password",
         },
 
     ];
@@ -559,6 +585,7 @@ function MainLayout() {
         "/visits",
         "/security",
         "/activity-logs",
+        "/account/password",
 
     ];
 
@@ -572,6 +599,7 @@ function MainLayout() {
         "/security",
         "/reports",
         "/activity-logs",
+        "/account/password",
 
     ];
 
@@ -582,6 +610,7 @@ function MainLayout() {
         "/resident/profile",
         "/resident/visitors",
         "/resident/visits",
+        "/account/password",
 
     ];
 
@@ -592,6 +621,7 @@ function MainLayout() {
         "/super-admin/estates",
         "/super-admin/admins",
         "/super-admin/activity",
+        "/account/password",
 
     ];
 
@@ -904,6 +934,24 @@ function MainLayout() {
                             element={
                                 isPathAllowed("/resident/visits") ? (
                                     <ResidentVisitsPage />
+                                ) : (
+                                    <Navigate to="/" replace />
+                                )
+                            }
+                        />
+
+
+                        {/* =================================================
+                           ACCOUNT — CHANGE PASSWORD
+                           ================================================= */}
+
+                        <Route
+                            path="/account/password"
+                            element={
+                                isPathAllowed(
+                                    "/account/password"
+                                ) ? (
+                                    <ChangePasswordPage />
                                 ) : (
                                     <Navigate to="/" replace />
                                 )

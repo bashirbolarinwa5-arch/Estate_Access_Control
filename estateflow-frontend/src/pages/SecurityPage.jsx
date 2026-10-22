@@ -23,12 +23,15 @@ import {
 import api from "../services/api";
 import { useAuth } from "../context/useAuth";
 
+import { useToast } from "../components/useToast";
+
 function getResponseData(response) {
     return response?.data?.data ?? response?.data;
 }
 
 function SecurityPage() {
     const { user } = useAuth();
+    const { showSuccess, showError } = useToast();
 
     const role = String(user?.role || "")
         .toUpperCase()
@@ -275,17 +278,20 @@ function SecurityPage() {
             !securityPhone.trim() ||
             !securityEmail.trim()
         ) {
+            showError("Please complete all security personnel details.");
             setError("Please complete all security personnel details.");
             return;
         }
 
         if (!editingSecurityId) {
             if (!securityUsername.trim() || !securityPassword) {
+                showError("Please enter a username and password.");
                 setError("Please enter a username and password.");
                 return;
             }
 
             if (securityPassword.length < 6) {
+                showError("Password must be at least 6 characters.");
                 setError("Password must be at least 6 characters.");
                 return;
             }
@@ -302,6 +308,7 @@ function SecurityPage() {
                 });
 
                 setSuccess("Security personnel updated successfully.");
+                showSuccess("Security personnel updated successfully.");
             } else {
                 await api.post("/security", {
                     name: securityName.trim(),
@@ -312,6 +319,7 @@ function SecurityPage() {
                 });
 
                 setSuccess("Security personnel created successfully.");
+                showSuccess("Security personnel created successfully.");
             }
 
             setShowSecurityModal(false);
@@ -319,10 +327,13 @@ function SecurityPage() {
             await loadSecurityPersonnel();
         } catch (err) {
             console.error("Failed to save security personnel:", err);
-            setError(
+
+            const message =
                 err.response?.data?.message ||
-                "Failed to save security personnel."
-            );
+                "Failed to save security personnel.";
+
+            showError(message);
+            setError(message);
         } finally {
             setSavingSecurity(false);
         }
@@ -343,13 +354,17 @@ function SecurityPage() {
             await api.delete(`/security/${person.id}`);
 
             setSuccess("Security personnel deleted successfully.");
+            showSuccess("Security personnel deleted successfully.");
             await loadSecurityPersonnel();
         } catch (err) {
             console.error("Failed to delete security personnel:", err);
-            setError(
+
+            const message =
                 err.response?.data?.message ||
-                "Failed to delete security personnel."
-            );
+                "Failed to delete security personnel.";
+
+            showError(message);
+            setError(message);
         } finally {
             setProcessingSecurityId(null);
         }
@@ -396,6 +411,9 @@ function SecurityPage() {
         const residentId = selectedResidentId;
 
         if (!name || !phone || !residentId || !purpose) {
+            showError(
+                "Please enter the visitor's name, phone, resident and purpose."
+            );
             setError(
                 "Please enter the visitor's name, phone, resident and purpose."
             );
@@ -433,19 +451,23 @@ function SecurityPage() {
 
             const code = visit?.accessCode;
 
-            setSuccess(
+            const successMessage =
                 `Walk-in registered for ${visit?.resident?.fullName || "the resident"}. ` +
                 "The visitor cannot enter until the resident approves the visit " +
                 "in their dashboard." +
-                (code ? ` Access code: ${code}.` : "")
-            );
+                (code ? ` Access code: ${code}.` : "");
+
+            setSuccess(successMessage);
+            showSuccess(successMessage);
         } catch (err) {
             console.error("Failed to create walk-in visit:", err);
 
-            setError(
+            const message =
                 err.response?.data?.message ||
-                "Failed to create the walk-in visit. Please try again."
-            );
+                "Failed to create the walk-in visit. Please try again.";
+
+            showError(message);
+            setError(message);
         } finally {
             setCreatingWalkIn(false);
         }
@@ -459,6 +481,7 @@ function SecurityPage() {
         const code = accessCode.trim();
 
         if (!code) {
+            showError("Please enter an access code.");
             setError("Please enter an access code.");
             return;
         }
@@ -478,14 +501,18 @@ function SecurityPage() {
             setAccessCode("");
             setCheckInResult(visit);
             setSuccess("Visitor checked in successfully.");
+            showSuccess("Visitor checked in successfully.");
 
             await loadResidents();
         } catch (err) {
             console.error("Check-in failed:", err);
-            setError(
+
+            const message =
                 err.response?.data?.message ||
-                "Failed to check in visitor."
-            );
+                "Failed to check in visitor.";
+
+            showError(message);
+            setError(message);
         } finally {
             setProcessingAccess(false);
         }
@@ -499,6 +526,7 @@ async function handleCheckOut(codeOverride) {
     const code = (codeOverride || accessCode).trim();
 
     if (!code) {
+        showError("Please enter an access code.");
         setError("Please enter an access code.");
         return;
     }
@@ -515,14 +543,18 @@ async function handleCheckOut(codeOverride) {
         setAccessCode("");
         setCheckInResult(null);
         setSuccess("Visitor checked out successfully.");
+        showSuccess("Visitor checked out successfully.");
 
         await loadResidents();
     } catch (err) {
         console.error("Check-out failed:", err);
-        setError(
+
+        const message =
             err.response?.data?.message ||
-            "Failed to check out visitor."
-        );
+            "Failed to check out visitor.";
+
+        showError(message);
+        setError(message);
     } finally {
         setProcessingAccess(false);
         setProcessingInsideId(null);

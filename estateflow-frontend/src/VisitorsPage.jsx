@@ -19,7 +19,11 @@ import {
 
 import api from "./services/api";
 
+import { useToast } from "./components/useToast";
+
 export default function VisitorsPage() {
+    const { showSuccess, showError } = useToast();
+
     const [visitors, setVisitors] = useState([]);
     const [residents, setResidents] = useState([]);
 
@@ -228,21 +232,27 @@ export default function VisitorsPage() {
         setSuccess("");
 
         if (!form.fullName.trim()) {
+            showError("Visitor name is required.");
             setError("Visitor name is required.");
             return;
         }
 
         if (!form.phone.trim()) {
+            showError("Phone number is required.");
             setError("Phone number is required.");
             return;
         }
 
         if (!form.purpose.trim()) {
+            showError("Purpose is required.");
             setError("Purpose is required.");
             return;
         }
 
         if (!editingVisitor && !form.residentId) {
+            showError(
+                "Please select the resident being visited."
+            );
             setError(
                 "Please select the resident being visited."
             );
@@ -265,6 +275,9 @@ export default function VisitorsPage() {
                 setSuccess(
                     "Visitor updated successfully."
                 );
+                showSuccess(
+                    "Visitor updated successfully."
+                );
             } else {
                 await api.post(
                     `/visitor/resident/${form.residentId}`,
@@ -276,6 +289,9 @@ export default function VisitorsPage() {
                 );
 
                 setSuccess(
+                    "Visitor added successfully."
+                );
+                showSuccess(
                     "Visitor added successfully."
                 );
             }
@@ -291,10 +307,12 @@ export default function VisitorsPage() {
         } catch (err) {
             console.error("Failed to save visitor:", err);
 
-            setError(
+            const message =
                 err.response?.data?.message ||
-                "Unable to save visitor."
-            );
+                "Unable to save visitor.";
+
+            showError(message);
+            setError(message);
         } finally {
             setSaving(false);
         }
@@ -320,6 +338,9 @@ export default function VisitorsPage() {
             setSuccess(
                 "Visitor deleted successfully."
             );
+            showSuccess(
+                "Visitor deleted successfully."
+            );
 
             await loadVisitors();
 
@@ -332,10 +353,12 @@ export default function VisitorsPage() {
                 err
             );
 
-            setError(
+            const message =
                 err.response?.data?.message ||
-                "Unable to delete visitor."
-            );
+                "Unable to delete visitor.";
+
+            showError(message);
+            setError(message);
         }
     }
 

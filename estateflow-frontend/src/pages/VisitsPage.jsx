@@ -16,8 +16,11 @@ import {
 import api from "../services/api";
 import { useAuth } from "../context/useAuth";
 
+import { useToast } from "../components/useToast";
+
 function VisitsPage() {
     const { user } = useAuth();
+    const { showSuccess, showError } = useToast();
     const isSecurity = user?.role === "ROLE_SECURITY";
 
     /*
@@ -204,16 +207,19 @@ function VisitsPage() {
         setSuccess("");
 
         if (!residentId) {
+            showError("Please select a resident.");
             setError("Please select a resident.");
             return;
         }
 
         if (!visitorId) {
+            showError("Please select a visitor.");
             setError("Please select a visitor.");
             return;
         }
 
         if (!purpose.trim()) {
+            showError("Please enter the visit purpose.");
             setError("Please enter the visit purpose.");
             return;
         }
@@ -224,6 +230,7 @@ function VisitsPage() {
         );
 
         if (!selectedVisitor) {
+            showError("Selected visitor could not be found.");
             setError("Selected visitor could not be found.");
             return;
         }
@@ -259,21 +266,24 @@ function VisitsPage() {
             const createdData =
                 createdVisit?.data || createdVisit;
 
-            setSuccess(
-                createdData?.accessCode
-                    ? `Visit created successfully. Access code: ${createdData.accessCode}`
-                    : "Visit created successfully. Awaiting resident approval."
-            );
+            const successMessage = createdData?.accessCode
+                ? `Visit created successfully. Access code: ${createdData.accessCode}`
+                : "Visit created successfully. Awaiting resident approval.";
+
+            setSuccess(successMessage);
+            showSuccess(successMessage);
         } catch (err) {
             console.error(
                 "Failed to create visit:",
                 err
             );
 
-            setError(
+            const message =
                 err.response?.data?.message ||
-                "Failed to create visit."
-            );
+                "Failed to create visit.";
+
+            showError(message);
+            setError(message);
         } finally {
             setCreating(false);
         }
@@ -292,15 +302,20 @@ function VisitsPage() {
             setSuccess(
                 "Visitor approved successfully."
             );
+            showSuccess(
+                "Visitor approved successfully."
+            );
 
             await loadVisits();
         } catch (err) {
             console.error("Approval failed:", err);
 
-            setError(
+            const message =
                 err.response?.data?.message ||
-                "Failed to approve visitor."
-            );
+                "Failed to approve visitor.";
+
+            showError(message);
+            setError(message);
         } finally {
             setProcessingVisitId(null);
         }
@@ -327,15 +342,20 @@ function VisitsPage() {
             setSuccess(
                 "Visitor rejected successfully."
             );
+            showSuccess(
+                "Visitor rejected successfully."
+            );
 
             await loadVisits();
         } catch (err) {
             console.error("Rejection failed:", err);
 
-            setError(
+            const message =
                 err.response?.data?.message ||
-                "Failed to reject visitor."
-            );
+                "Failed to reject visitor.";
+
+            showError(message);
+            setError(message);
         } finally {
             setProcessingVisitId(null);
         }
@@ -354,15 +374,20 @@ function VisitsPage() {
             setSuccess(
                 "Visitor checked in successfully."
             );
+            showSuccess(
+                "Visitor checked in successfully."
+            );
 
             await loadVisits();
         } catch (err) {
             console.error("Check-in failed:", err);
 
-            setError(
+            const message =
                 err.response?.data?.message ||
-                "Failed to check in visitor."
-            );
+                "Failed to check in visitor.";
+
+            showError(message);
+            setError(message);
         } finally {
             setProcessingVisitId(null);
         }
@@ -381,15 +406,20 @@ function VisitsPage() {
             setSuccess(
                 "Visitor checked out successfully."
             );
+            showSuccess(
+                "Visitor checked out successfully."
+            );
 
             await loadVisits();
         } catch (err) {
             console.error("Check-out failed:", err);
 
-            setError(
+            const message =
                 err.response?.data?.message ||
-                "Failed to check out visitor."
-            );
+                "Failed to check out visitor.";
+
+            showError(message);
+            setError(message);
         } finally {
             setProcessingVisitId(null);
         }

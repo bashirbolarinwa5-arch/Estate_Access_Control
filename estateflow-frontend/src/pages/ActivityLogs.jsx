@@ -13,7 +13,11 @@ import {
 
 import api from "../services/api";
 
+import { useToast } from "../components/useToast";
+
 function ActivityLogs() {
+    const { showError } = useToast();
+
     const [logs, setLogs] = useState([]);
 
     const [loading, setLoading] = useState(true);
@@ -41,10 +45,12 @@ function ActivityLogs() {
         } catch (err) {
             console.error("Failed to load activity logs:", err);
 
-            setError(
+            const message =
                 err.response?.data?.message ||
-                "Failed to load activity logs."
-            );
+                "Failed to load activity logs.";
+
+            showError(message);
+            setError(message);
 
             setLogs([]);
         } finally {

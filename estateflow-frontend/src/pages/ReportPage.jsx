@@ -15,7 +15,11 @@ import {
 
 import api from "../services/api";
 
+import { useToast } from "../components/useToast";
+
 function ReportsPage() {
+    const { showError } = useToast();
+
     const [todayVisits, setTodayVisits] = useState([]);
     const [currentlyInside, setCurrentlyInside] = useState([]);
     const [allVisits, setAllVisits] = useState([]);
@@ -65,10 +69,12 @@ function ReportsPage() {
         } catch (err) {
             console.error("Failed to load reports:", err);
 
-            setError(
+            const message =
                 err.response?.data?.message ||
-                "Failed to load reports."
-            );
+                "Failed to load reports.";
+
+            showError(message);
+            setError(message);
         } finally {
             setLoading(false);
         }

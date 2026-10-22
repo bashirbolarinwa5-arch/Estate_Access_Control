@@ -14,9 +14,14 @@ import {
 } from "lucide-react";
 
 import API from "../services/api";
+
+import { useToast } from "../components/useToast";
+
 import "./ResidentVisitorsPage.css";
 
 function ResidentVisitorsPage() {
+    const { showSuccess, showError } = useToast();
+
     const [visitors, setVisitors] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -169,16 +174,19 @@ function ResidentVisitorsPage() {
         const purpose = form.purpose.trim();
 
         if (!fullName) {
+            showError("Visitor full name is required.");
             setFormError("Visitor full name is required.");
             return;
         }
 
         if (!phoneNumber) {
+            showError("Visitor phone number is required.");
             setFormError("Visitor phone number is required.");
             return;
         }
 
         if (!purpose) {
+            showError("Please enter the purpose of the visit.");
             setFormError("Please enter the purpose of the visit.");
             return;
         }
@@ -197,6 +205,9 @@ function ResidentVisitorsPage() {
             });
 
             setSuccessMessage(
+                "Visitor registered successfully."
+            );
+            showSuccess(
                 "Visitor registered successfully."
             );
 
@@ -219,10 +230,12 @@ function ResidentVisitorsPage() {
                 err
             );
 
-            setFormError(
+            const message =
                 err.response?.data?.message ||
-                "Failed to register visitor. Please try again."
-            );
+                "Failed to register visitor. Please try again.";
+
+            showError(message);
+            setFormError(message);
         } finally {
             setSubmitting(false);
         }

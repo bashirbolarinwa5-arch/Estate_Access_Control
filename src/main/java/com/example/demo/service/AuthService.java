@@ -182,4 +182,65 @@ public class AuthService {
 
     }
 
+    /*
+     * Self-service password change, available to every role.
+     *
+     * The current password must be presented — knowing the
+     * username alone never grants a password change. The new
+     * password must differ from the current one so the request
+     * cannot silently re-save the same login.
+     */
+    public void changePassword(
+            String username,
+            String currentPassword,
+            String newPassword) {
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() ->
+                        new RuntimeException("Account not found"));
+
+        if (currentPassword == null ||
+                !passwordEncoder.matches(
+                        currentPassword, user.getPassword())) {
+
+            throw new RuntimeException(
+                    "Current password is incorrect");
+        }
+
+        if (newPassword == null ||
+                newPassword.trim().length() < 6) {
+
+            throw new RuntimeException(
+                    "New password must be at least 6 characters");
+        }
+
+        /*
+         * BCrypt only encodes the first 72 bytes — a longer
+         * password would silently truncate on the next login.
+         */
+        if (newPassword.length() > 72) {
+
+            throw new RuntimeException(
+                    "Password is too long (maximum 72 characters)");
+        }
+
+        if (passwordEncoder.matches(newPassword, user.getPassword())) {
+
+            throw new RuntimeException(
+                    "New password must be different "
+                    + "from the current password");
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        activityLogService.logForUser(
+                user,
+                user.getUsername(),
+                "PASSWORD_CHANGE",
+                user.getUsername() + " changed their own password"
+        );
+
+    }
+
 }
