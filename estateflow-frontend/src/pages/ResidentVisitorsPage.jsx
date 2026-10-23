@@ -8,7 +8,6 @@ import {
     Users,
     Plus,
     X,
-    FileText,
     Loader2,
     CheckCircle2,
 } from "lucide-react";
@@ -33,7 +32,6 @@ function ResidentVisitorsPage() {
     const [form, setForm] = useState({
         fullName: "",
         phoneNumber: "",
-        purpose: "",
     });
 
     const [submitting, setSubmitting] = useState(false);
@@ -156,7 +154,6 @@ function ResidentVisitorsPage() {
         setForm({
             fullName: "",
             phoneNumber: "",
-            purpose: "",
         });
 
         setFormError("");
@@ -171,7 +168,6 @@ function ResidentVisitorsPage() {
 
         const fullName = form.fullName.trim();
         const phoneNumber = form.phoneNumber.trim();
-        const purpose = form.purpose.trim();
 
         if (!fullName) {
             showError("Visitor full name is required.");
@@ -185,12 +181,6 @@ function ResidentVisitorsPage() {
             return;
         }
 
-        if (!purpose) {
-            showError("Please enter the purpose of the visit.");
-            setFormError("Please enter the purpose of the visit.");
-            return;
-        }
-
         try {
             setSubmitting(true);
 
@@ -201,7 +191,6 @@ function ResidentVisitorsPage() {
             await API.post("/visitor/me", {
                 fullName,
                 phoneNumber,
-                purpose,
             });
 
             setSuccessMessage(
@@ -214,7 +203,6 @@ function ResidentVisitorsPage() {
             setForm({
                 fullName: "",
                 phoneNumber: "",
-                purpose: "",
             });
 
             await loadVisitors(true);
@@ -610,33 +598,6 @@ function ResidentVisitorsPage() {
                                         onChange={handleFormChange}
                                         disabled={submitting}
                                         autoComplete="tel"
-                                    />
-
-                                </div>
-
-                            </div>
-
-                            {/* PURPOSE */}
-
-                            <div className="resident-form-group">
-
-                                <label htmlFor="visitor-purpose">
-                                    Purpose of Visit
-                                </label>
-
-                                <div className="resident-input-wrapper resident-textarea-wrapper">
-
-                                    <FileText size={18} />
-
-                                    <textarea
-                                        id="visitor-purpose"
-                                        name="purpose"
-                                        placeholder="Why is the visitor coming?"
-                                        value={form.purpose}
-                                        onChange={handleFormChange}
-                                        disabled={submitting}
-                                        rows={4}
-                                        maxLength={255}
                                     />
 
                                 </div>

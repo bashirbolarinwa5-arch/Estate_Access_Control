@@ -718,6 +718,13 @@ export default function ResidentsPage() {
     border-radius: 22px;
     box-shadow: 0 30px 80px rgba(15,23,42,.22);
     overflow: hidden;
+    max-height: calc(100vh - 40px);
+}
+
+.resident-modal form {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 .resident-modal-header {
@@ -772,6 +779,9 @@ export default function ResidentsPage() {
 
 .resident-modal-body {
     padding: 24px;
+    overflow-y: auto;
+    min-height: 0;
+    flex: 1 1 auto;
 }
 
 .resident-form-grid {
@@ -958,7 +968,7 @@ export default function ResidentsPage() {
                         onClick={openCreateModal}
                     >
                         <Plus size={17} />
-                        Add Resident
+                        Create Resident
                     </button>
                 </div>
             </div>
@@ -1158,7 +1168,7 @@ export default function ResidentsPage() {
                                     <h2>
                                         {editingResident
                                             ? "Edit Resident"
-                                            : "Add Resident"}
+                                            : "Create Resident"}
                                     </h2>
 
                                     <p>
@@ -1300,12 +1310,12 @@ export default function ResidentsPage() {
                                     {saving ? (
                                         <>
                                             <span className="resident-spinner" />
-                                            Saving...
+                                            Creating...
                                         </>
                                     ) : editingResident ? (
                                         "Save Changes"
                                     ) : (
-                                        "Add Resident"
+                                        "Create Resident"
                                     )}
                                 </button>
                             </div>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
     CalendarDays,
     Clock3,
@@ -27,10 +28,7 @@ function VisitsPage() {
      * Security registers walk-in visits only, so this role
      * gets the same terminology as the Security module.
      */
-    const createVisitLabel =
-        isSecurity
-            ? "Create Walk-In Visit"
-            : "Create Visit";
+    const createVisitLabel = "Create Visit";
     const [visits, setVisits] = useState([]);
     const [residents, setResidents] = useState([]);
     const [visitors, setVisitors] = useState([]);
@@ -1164,7 +1162,8 @@ function VisitsPage() {
                     max-width: 500px;
                     background: white;
                     border-radius: 22px;
-                    overflow: hidden;
+                    overflow-y: auto;
+                    max-height: calc(100vh - 40px);
                     box-shadow:
                         0 30px 80px rgba(15, 23, 42, .25);
                 }
@@ -1375,13 +1374,15 @@ function VisitsPage() {
                         />
                     </button>
 
-                    <button
-                        className="visit-primary-button"
-                        onClick={openCreateModal}
-                    >
-                        <Plus size={17} />
-                        {createVisitLabel}
-                    </button>
+                    {!isSecurity && (
+                        <button
+                            className="visit-primary-button"
+                            onClick={openCreateModal}
+                        >
+                            <Plus size={17} />
+                            {createVisitLabel}
+                        </button>
+                    )}
 
                 </div>
 
@@ -1508,8 +1509,11 @@ function VisitsPage() {
                         </strong>
 
                         <span>
-                            Create your first visit to
-                            get started.
+                            {isSecurity ? (
+                                <>Register walk-in visits from the <Link to="/security">Security page</Link>.</>
+                            ) : (
+                                "Create your first visit to get started."
+                            )}
                         </span>
 
                     </div>

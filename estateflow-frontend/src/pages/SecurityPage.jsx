@@ -452,7 +452,7 @@ function SecurityPage() {
             const code = visit?.accessCode;
 
             const successMessage =
-                `Walk-in registered for ${visit?.resident?.fullName || "the resident"}. ` +
+                `Walk-In Visit created for ${visit?.resident?.fullName || "the resident"}. ` +
                 "The visitor cannot enter until the resident approves the visit " +
                 "in their dashboard." +
                 (code ? ` Access code: ${code}.` : "");
@@ -464,7 +464,7 @@ function SecurityPage() {
 
             const message =
                 err.response?.data?.message ||
-                "Failed to create the walk-in visit. Please try again.";
+                "Failed to create the Walk-In Visit. Please try again.";
 
             showError(message);
             setError(message);
@@ -600,7 +600,7 @@ if (isSecurity) {
                         onClick={openWalkInForm}
                     >
                         <Plus size={17} />
-                        Create Walk-in Visit
+                        Create Walk-In Visit
                     </button>
                 </div>
             </div>
@@ -959,7 +959,7 @@ if (isSecurity) {
                     <section className="security-modal">
                         <div className="security-modal-header">
                             <div>
-                                <h2>Create Walk-in Visit</h2>
+                                <h2>Create Walk-In Visit</h2>
                                 <p>
                                     Register the visitor and request resident approval.
                                 </p>
@@ -1075,7 +1075,7 @@ if (isSecurity) {
                                         </>
                                         : <>
                                             <ClipboardCheck size={15} />
-                                            Register & Create Visit
+                                            Create Walk-In Visit
                                         </>}
                                 </button>
                             </div>

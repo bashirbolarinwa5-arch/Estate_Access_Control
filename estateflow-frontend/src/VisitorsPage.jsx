@@ -243,12 +243,6 @@ export default function VisitorsPage() {
             return;
         }
 
-        if (!form.purpose.trim()) {
-            showError("Purpose is required.");
-            setError("Purpose is required.");
-            return;
-        }
-
         if (!editingVisitor && !form.residentId) {
             showError(
                 "Please select the resident being visited."
@@ -1021,6 +1015,7 @@ export default function VisitorsPage() {
                     box-shadow:
                         0 30px 80px rgba(15, 23, 42, .25);
                     overflow: hidden;
+                    max-height: calc(100vh - 40px);
                 }
 
                 .modal-header {
@@ -1066,6 +1061,7 @@ export default function VisitorsPage() {
 
                 .modal-form {
                     padding: 24px 25px 25px;
+                    overflow-y: auto;
                 }
 
                 .form-field {
@@ -1770,7 +1766,7 @@ export default function VisitorsPage() {
                             <div className="form-field">
 
                                 <label>
-                                    Purpose of visit
+                                    Purpose of visit (optional)
                                 </label>
 
                                 <input
