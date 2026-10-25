@@ -382,6 +382,7 @@ function Sidebar({
                                 ? "active"
                                 : ""
                         }`}
+                        aria-label={item.name}
                         onClick={() =>
                             handleNavigation(item)
                         }
@@ -409,6 +410,7 @@ function Sidebar({
                 <button
                     type="button"
                     className="nav-item logout-item"
+                    aria-label="Logout"
                     onClick={handleLogout}
                 >
 
@@ -469,6 +471,7 @@ function Header({
                 <button
                     type="button"
                     className="icon-button"
+                    aria-label="Open navigation menu"
                     onClick={() =>
                         setMobileMenu(true)
                     }
@@ -508,6 +511,7 @@ function Header({
                 <button
                     type="button"
                     className="notification-button"
+                    aria-label="Notifications"
                 >
 
                     <Bell size={20} />
