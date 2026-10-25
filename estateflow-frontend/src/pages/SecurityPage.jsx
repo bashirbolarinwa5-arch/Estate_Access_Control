@@ -962,6 +962,7 @@ if (isSecurity) {
                 key={showBulkSecurityModal ? "bulk-open" : "bulk-closed"}
                 open={showBulkSecurityModal}
                 onClose={() => setShowBulkSecurityModal(false)}
+                onCreated={() => loadSecurityPersonnel()}
                 title="Bulk Create Security Personnel"
                 subtitle="Paste a JSON array of security personnel. Each entry becomes a security account in this estate."
                 endpoint="/security/bulk"

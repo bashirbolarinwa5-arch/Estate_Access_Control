@@ -987,6 +987,7 @@ export default function ResidentsPage() {
                 key={showBulkModal ? "bulk-open" : "bulk-closed"}
                 open={showBulkModal}
                 onClose={() => setShowBulkModal(false)}
+                onCreated={() => loadResidents()}
                 title="Bulk Create Residents"
                 subtitle="Paste a JSON array of residents. Each entry becomes a resident account in this estate."
                 endpoint="/resident/bulk"

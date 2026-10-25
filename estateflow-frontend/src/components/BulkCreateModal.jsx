@@ -19,6 +19,7 @@ import { useToast } from "./useToast";
 function BulkCreateModal({
     open,
     onClose,
+    onCreated,
     title,
     subtitle,
     endpoint,
@@ -96,6 +97,10 @@ function BulkCreateModal({
             const failed = data?.failed || [];
 
             setResult({ created, failed });
+
+            if (created > 0 && typeof onCreated === "function") {
+                onCreated(created);
+            }
 
             if (failed.length > 0) {
                 showError(
