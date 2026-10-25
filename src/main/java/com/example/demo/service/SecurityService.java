@@ -117,9 +117,29 @@ public class SecurityService {
 
             try {
 
+                /*
+                 * The single-create controller builds this entity
+                 * before calling the service, so the bulk path has
+                 * to do the same. Otherwise the account is created
+                 * with no name, phone number or email.
+                 */
+                Security securityPerson = new Security();
+
+                securityPerson.setName(
+                        request.getName()
+                );
+
+                securityPerson.setPhoneNumber(
+                        request.getPhoneNumber()
+                );
+
+                securityPerson.setEmail(
+                        request.getEmail()
+                );
+
                 created.add(
                         createSecurity(
-                                new Security(),
+                                securityPerson,
                                 request.getUsername(),
                                 request.getPassword()
                         )

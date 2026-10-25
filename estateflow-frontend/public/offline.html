@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="theme-color" content="#7c3aed" />
+        <title>EstateFlow — You are offline</title>
+        <style>
+            * {
+                box-sizing: border-box;
+            }
+
+            body {
+                margin: 0;
+                min-height: 100dvh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 24px;
+                background: linear-gradient(150deg, #0b1020, #172554 65%, #1e1b4b);
+                color: #ffffff;
+                font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+            }
+
+            .card {
+                width: 100%;
+                max-width: 420px;
+                text-align: center;
+            }
+
+            .mark {
+                width: 76px;
+                height: 76px;
+                margin: 0 auto 22px;
+                display: grid;
+                place-items: center;
+                border-radius: 22px;
+                background: linear-gradient(135deg, #863bff, #47bfff);
+                font-size: 26px;
+                font-weight: 800;
+                letter-spacing: 0.5px;
+            }
+
+            h1 {
+                margin: 0 0 10px;
+                font-size: 22px;
+            }
+
+            p {
+                margin: 0 0 24px;
+                font-size: 14px;
+                line-height: 1.6;
+                color: #b9c4dc;
+            }
+
+            button {
+                width: 100%;
+                min-height: 48px;
+                border: none;
+                border-radius: 12px;
+                background: linear-gradient(135deg, #863bff, #6d28d9);
+                color: #ffffff;
+                font-size: 14px;
+                font-weight: 700;
+                cursor: pointer;
+            }
+
+            .hint {
+                margin: 16px 0 0;
+                font-size: 12px;
+                color: #7f8db0;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <div class="mark">EF</div>
+            <h1>You are offline</h1>
+            <p>
+                EstateFlow could not reach the estate server. Check your
+                connection and try again — nothing you saved is lost.
+            </p>
+            <button type="button" onclick="window.location.reload()">
+                Try again
+            </button>
+            <p class="hint">
+                Visits and visitor records need a live connection for security.
+            </p>
+        </div>
+    </body>
+</html>

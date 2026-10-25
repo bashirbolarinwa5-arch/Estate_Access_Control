@@ -24,7 +24,7 @@ import api from "../services/api";
 import { useAuth } from "../context/useAuth";
 
 import { useToast } from "../components/useToast";
-import BulkSecurityModal from "../components/BulkSecurityModal";
+import BulkCreateModal from "../components/BulkCreateModal";
 
 function getResponseData(response) {
     return response?.data?.data ?? response?.data;
@@ -958,12 +958,31 @@ if (isSecurity) {
                 )}
             </section>
 
-            {showBulkSecurityModal && (
-                <BulkSecurityModal
-                    open={showBulkSecurityModal}
-                    onClose={() => setShowBulkSecurityModal(false)}
-                />
-            )}
+            <BulkCreateModal
+                key={showBulkSecurityModal ? "bulk-open" : "bulk-closed"}
+                open={showBulkSecurityModal}
+                onClose={() => setShowBulkSecurityModal(false)}
+                title="Bulk Create Security Personnel"
+                subtitle="Paste a JSON array of security personnel. Each entry becomes a security account in this estate."
+                endpoint="/security/bulk"
+                fields={[
+                    "name",
+                    "phoneNumber",
+                    "email",
+                    "username",
+                    "password",
+                ]}
+                successNoun="security accounts"
+                sample={`[
+  {
+    "name": "Tunde Balogun",
+    "phoneNumber": "08076543210",
+    "email": "tunde@example.com",
+    "username": "tundeb",
+    "password": "Str0ng!Pass"
+  }
+]`}
+            />
 
             {showWalkInForm && (
                 <div

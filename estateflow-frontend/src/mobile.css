@@ -1,0 +1,58 @@
+/*
+ * Phone/app-mode polish for the installed PWA.
+ * Loaded after index.css so it only adds behaviour, never new colours.
+ */
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  overscroll-behavior-y: contain;
+}
+
+button,
+a,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/*
+ * iOS zooms the page when a text field smaller than 16px gets focus.
+ * Bumping form controls on phones removes that jumpy zoom.
+ */
+@media (max-width: 700px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Dynamic viewport height keeps the fixed sidebar correct when
+ * phone browser chrome slides in and out. */
+@supports (height: 100dvh) {
+  .app {
+    min-height: 100dvh;
+  }
+
+  .sidebar {
+    height: 100dvh;
+  }
+}
+
+/* Installed app: keep content clear of the home indicator. */
+@media (display-mode: standalone) {
+  .sidebar {
+    height: 100dvh;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  }
+
+  .mobile-sidebar {
+    bottom: env(safe-area-inset-bottom);
+  }
+
+  .main-content {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

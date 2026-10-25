@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 
 import { useToast } from "./components/useToast";
-import BulkResidentsModal from "./components/BulkResidentsModal";
+import BulkCreateModal from "./components/BulkCreateModal";
 
 const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL ||
@@ -983,12 +983,33 @@ export default function ResidentsPage() {
                 </div>
             </div>
 
-            {showBulkModal && (
-                <BulkResidentsModal
-                    open={showBulkModal}
-                    onClose={() => setShowBulkModal(false)}
-                />
-            )}
+            <BulkCreateModal
+                key={showBulkModal ? "bulk-open" : "bulk-closed"}
+                open={showBulkModal}
+                onClose={() => setShowBulkModal(false)}
+                title="Bulk Create Residents"
+                subtitle="Paste a JSON array of residents. Each entry becomes a resident account in this estate."
+                endpoint="/resident/bulk"
+                fields={[
+                    "fullName",
+                    "phoneNumber",
+                    "houseNumber",
+                    "email",
+                    "username",
+                    "password",
+                ]}
+                successNoun="residents"
+                sample={`[
+  {
+    "fullName": "Adaeze Okonkwo",
+    "phoneNumber": "08012345678",
+    "houseNumber": "12B",
+    "email": "adaeze@example.com",
+    "username": "adaeze",
+    "password": "Str0ng!Pass"
+  }
+]`}
+            />
 
             {error && (
                 <div className="resident-alert error">
