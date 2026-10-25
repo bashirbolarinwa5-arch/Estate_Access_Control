@@ -6,6 +6,7 @@ import com.example.demo.entity.Role;
 import com.example.demo.entity.User;
 import com.example.demo.repository.ResidentRepository;
 import com.example.demo.repository.UserRepository;
+import com.example.demo.response.BulkUsersResult;
 import com.example.demo.response.ResidentCreateRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -14,7 +15,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class ResidentService {
@@ -130,6 +134,43 @@ public class ResidentService {
         );
 
         return savedResident;
+    }
+
+    // BULK CREATE RESIDENTS
+    public BulkUsersResult createResidents(
+            List<ResidentCreateRequest> requests) {
+
+        List<Resident> created = new ArrayList<>();
+
+        List<Map<String, String>> failed = new ArrayList<>();
+
+        for (ResidentCreateRequest request : requests) {
+
+            try {
+
+                created.add(createResident(request));
+
+            } catch (RuntimeException ex) {
+
+                Map<String, String> failure = new HashMap<>();
+
+                failure.put(
+                        "username",
+                        request.getUsername() == null
+                                ? "unknown"
+                                : request.getUsername()
+                );
+
+                failure.put(
+                        "reason",
+                        ex.getMessage()
+                );
+
+                failed.add(failure);
+            }
+        }
+
+        return new BulkUsersResult(created, failed);
     }
 
     // GET ALL RESIDENTS

@@ -24,6 +24,7 @@ import api from "../services/api";
 import { useAuth } from "../context/useAuth";
 
 import { useToast } from "../components/useToast";
+import BulkSecurityModal from "../components/BulkSecurityModal";
 
 function getResponseData(response) {
     return response?.data?.data ?? response?.data;
@@ -47,6 +48,7 @@ function SecurityPage() {
     const [processingSecurityId, setProcessingSecurityId] = useState(null);
 
     const [showSecurityModal, setShowSecurityModal] = useState(false);
+    const [showBulkSecurityModal, setShowBulkSecurityModal] = useState(false);
     const [editingSecurityId, setEditingSecurityId] = useState(null);
 
     const [securityName, setSecurityName] = useState("");
@@ -602,6 +604,15 @@ if (isSecurity) {
                         <Plus size={17} />
                         Create Walk-In Visit
                     </button>
+
+                    <button
+                        type="button"
+                        className="security-primary-button"
+                        onClick={() => setShowBulkSecurityModal(true)}
+                    >
+                        <Plus size={17} />
+                        Bulk Create Security
+                    </button>
                 </div>
             </div>
 
@@ -946,6 +957,13 @@ if (isSecurity) {
                     </div>
                 )}
             </section>
+
+            {showBulkSecurityModal && (
+                <BulkSecurityModal
+                    open={showBulkSecurityModal}
+                    onClose={() => setShowBulkSecurityModal(false)}
+                />
+            )}
 
             {showWalkInForm && (
                 <div

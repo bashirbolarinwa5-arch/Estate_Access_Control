@@ -1,5 +1,6 @@
 package com.example.demo.service;
 
+import com.example.demo.response.BulkUsersResult;
 import com.example.demo.entity.Estate;
 import com.example.demo.entity.Role;
 import com.example.demo.entity.Security;
@@ -7,10 +8,14 @@ import com.example.demo.entity.User;
 import com.example.demo.entity.Visit;
 import com.example.demo.repository.SecurityRepository;
 import com.example.demo.repository.UserRepository;
+import com.example.demo.response.SecurityRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class SecurityService {
@@ -98,6 +103,49 @@ public class SecurityService {
         security.setUser(savedUser);
 
         return securityRepository.save(security);
+    }
+
+    // BULK CREATE SECURITY PERSONNEL
+    public BulkUsersResult createSecurities(
+            List<SecurityRequest> requests) {
+
+        List<Security> created = new ArrayList<>();
+
+        List<Map<String, String>> failed = new ArrayList<>();
+
+        for (SecurityRequest request : requests) {
+
+            try {
+
+                created.add(
+                        createSecurity(
+                                new Security(),
+                                request.getUsername(),
+                                request.getPassword()
+                        )
+                );
+
+            } catch (RuntimeException ex) {
+
+                Map<String, String> failure = new HashMap<>();
+
+                failure.put(
+                        "username",
+                        request.getUsername() == null
+                                ? "unknown"
+                                : request.getUsername()
+                );
+
+                failure.put(
+                        "reason",
+                        ex.getMessage()
+                );
+
+                failed.add(failure);
+            }
+        }
+
+        return new BulkUsersResult(created, failed);
     }
 
     // GET ALL SECURITY

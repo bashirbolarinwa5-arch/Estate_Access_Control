@@ -2,6 +2,7 @@ package com.example.demo.controller;
 
 import com.example.demo.entity.Resident;
 import com.example.demo.response.ApiResponse;
+import com.example.demo.response.BulkUsersResult;
 import com.example.demo.response.ResidentCreateRequest;
 import com.example.demo.service.ResidentService;
 import org.springframework.http.ResponseEntity;
@@ -31,6 +32,21 @@ public class ResidentController {
                 true,
                 "Resident created successfully",
                 created
+        );
+    }
+
+    // BULK CREATE RESIDENTS
+    @PostMapping("/bulk")
+    public ApiResponse<BulkUsersResult> createResidents(
+            @RequestBody List<ResidentCreateRequest> requests) {
+
+        BulkUsersResult result =
+                residentService.createResidents(requests);
+
+        return new ApiResponse<>(
+                true,
+                "Bulk resident creation finished",
+                result
         );
     }
 

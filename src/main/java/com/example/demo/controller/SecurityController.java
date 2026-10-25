@@ -2,6 +2,8 @@ package com.example.demo.controller;
 
 import com.example.demo.entity.Security;
 import com.example.demo.entity.Visit;
+import com.example.demo.response.ApiResponse;
+import com.example.demo.response.BulkUsersResult;
 import com.example.demo.response.SecurityRequest;
 import com.example.demo.service.SecurityService;
 import org.springframework.web.bind.annotation.*;
@@ -45,6 +47,21 @@ public class SecurityController {
                 securityPerson,
                 request.getUsername(),
                 request.getPassword()
+        );
+    }
+
+    // BULK CREATE SECURITY PERSONNEL
+    @PostMapping("/bulk")
+    public ApiResponse<BulkUsersResult> createSecurities(
+            @RequestBody List<SecurityRequest> requests) {
+
+        BulkUsersResult result =
+                security.createSecurities(requests);
+
+        return new ApiResponse<>(
+                true,
+                "Bulk security creation finished",
+                result
         );
     }
 

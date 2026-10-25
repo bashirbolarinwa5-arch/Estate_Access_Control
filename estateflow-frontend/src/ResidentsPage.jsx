@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { useToast } from "./components/useToast";
+import BulkResidentsModal from "./components/BulkResidentsModal";
 
 const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL ||
@@ -106,6 +107,7 @@ export default function ResidentsPage() {
     const [residents, setResidents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [showBulkModal, setShowBulkModal] = useState(false);
 
     const [search, setSearch] = useState("");
 
@@ -970,8 +972,23 @@ export default function ResidentsPage() {
                         <Plus size={17} />
                         Create Resident
                     </button>
+
+                    <button
+                        className="resident-btn primary"
+                        onClick={() => setShowBulkModal(true)}
+                    >
+                        <Plus size={17} />
+                        Bulk Create
+                    </button>
                 </div>
             </div>
+
+            {showBulkModal && (
+                <BulkResidentsModal
+                    open={showBulkModal}
+                    onClose={() => setShowBulkModal(false)}
+                />
+            )}
 
             {error && (
                 <div className="resident-alert error">
