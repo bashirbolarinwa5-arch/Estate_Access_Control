@@ -306,6 +306,12 @@ function SecurityPage() {
     async function handleSecuritySubmit(event) {
         event.preventDefault();
 
+        if (securityPhone.trim() && !/^\d{11}$/.test(securityPhone.trim())) {
+            showError("Phone number must contain exactly 11 digits.");
+            setError("Phone number must contain exactly 11 digits.");
+            return;
+        }
+
         setError("");
         setSuccess("");
 
@@ -488,6 +494,12 @@ function SecurityPage() {
             setError(
                 "Please enter the visitor's name, phone, resident and purpose."
             );
+            return;
+        }
+
+        if (!/^\d{11}$/.test(phone)) {
+            showError("Visitor phone number must contain exactly 11 digits.");
+            setError("Visitor phone number must contain exactly 11 digits.");
             return;
         }
 
@@ -1105,6 +1117,8 @@ if (isSecurity) {
                                 <label>Visitor Phone Number</label>
                                 <input
                                     type="tel"
+                                    inputMode="numeric"
+                                    maxLength={11}
                                     value={visitorPhone}
                                     onChange={(event) => setVisitorPhone(event.target.value)}
                                     placeholder="Enter visitor's phone number"
@@ -1467,6 +1481,9 @@ return (
                             <div className="security-form-group">
                                 <label>Phone Number</label>
                                 <input
+                                    type="tel"
+                                    inputMode="numeric"
+                                    maxLength={11}
                                     value={securityPhone}
                                     onChange={(event) => setSecurityPhone(event.target.value)}
                                     placeholder="Enter phone number"

@@ -32,6 +32,9 @@ public class VisitorService {
     // CREATE VISITOR
     public Visitor createVisitor(Long residentId, Visitor visitor) {
 
+        visitor.setPhoneNumber(PhoneNumberValidator.requireElevenDigits(
+                visitor.getPhoneNumber(), "Visitor phone number"));
+
         // Only an ADMIN/SECURITY of one estate reaches here.
         Estate estate =
                 currentUserService.getRequiredEstate();
@@ -90,6 +93,9 @@ public class VisitorService {
 
     // UPDATE VISITOR
     public Visitor updateVisitor(Long id, Visitor visitor) {
+
+        visitor.setPhoneNumber(PhoneNumberValidator.requireElevenDigits(
+                visitor.getPhoneNumber(), "Visitor phone number"));
 
         Visitor existingVisitor = visitorRepository.findById(id)
                 .orElseThrow(() ->
@@ -167,6 +173,9 @@ public class VisitorService {
             String username,
             Visitor visitor
     ) {
+
+        visitor.setPhoneNumber(PhoneNumberValidator.requireElevenDigits(
+                visitor.getPhoneNumber(), "Visitor phone number"));
 
         Resident resident = residentRepository
                 .findByUserUsername(username)

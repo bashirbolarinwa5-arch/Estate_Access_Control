@@ -52,6 +52,9 @@ public class SecurityService {
             String username,
             String password) {
 
+        security.setPhoneNumber(PhoneNumberValidator.requireElevenDigitsWhenPresent(
+                security.getPhoneNumber(), "Phone number"));
+
         if (username == null || username.trim().isEmpty()) {
             throw new RuntimeException(
                     "Username is required"
@@ -296,6 +299,9 @@ public class SecurityService {
     public Security updateSecurity(
             Long id,
             Security updatedSecurity) {
+
+        updatedSecurity.setPhoneNumber(PhoneNumberValidator.requireElevenDigitsWhenPresent(
+                updatedSecurity.getPhoneNumber(), "Phone number"));
 
         Security existingSecurity =
                 securityRepository.findById(id)

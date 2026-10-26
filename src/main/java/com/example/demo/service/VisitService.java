@@ -137,6 +137,9 @@ public class VisitService {
             Visitor visitor,
             String purpose) {
 
+        visitor.setPhoneNumber(PhoneNumberValidator.requireElevenDigits(
+                visitor.getPhoneNumber(), "Visitor phone number"));
+
         if (purpose == null || purpose.trim().isEmpty()) {
             throw new RuntimeException("Visit purpose is required");
         }

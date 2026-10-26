@@ -361,9 +361,9 @@ function BulkImportModal({
 
             if (
                 item.phoneNumber &&
-                item.phoneNumber.replace(/\D/g, "").length < 7
+                !/^\d{11}$/.test(item.phoneNumber)
             ) {
-                errors.push("Phone number looks too short");
+                errors.push("Phone number must contain exactly 11 digits");
             }
 
             const row = {

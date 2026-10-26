@@ -181,6 +181,12 @@ function ResidentVisitorsPage() {
             return;
         }
 
+        if (!/^\d{11}$/.test(phoneNumber)) {
+            showError("Visitor phone number must contain exactly 11 digits.");
+            setFormError("Visitor phone number must contain exactly 11 digits.");
+            return;
+        }
+
         try {
             setSubmitting(true);
 
@@ -593,6 +599,8 @@ function ResidentVisitorsPage() {
                                         id="visitor-phoneNumber"
                                         name="phoneNumber"
                                         type="tel"
+                                        inputMode="numeric"
+                                        maxLength={11}
                                         placeholder="Enter visitor's phone number"
                                         value={form.phoneNumber}
                                         onChange={handleFormChange}

@@ -243,6 +243,12 @@ export default function VisitorsPage() {
             return;
         }
 
+        if (!/^\d{11}$/.test(form.phone.trim())) {
+            showError("Phone number must contain exactly 11 digits.");
+            setError("Phone number must contain exactly 11 digits.");
+            return;
+        }
+
         if (!editingVisitor && !form.residentId) {
             showError(
                 "Please select the resident being visited."
@@ -1754,6 +1760,9 @@ export default function VisitorsPage() {
                                 </label>
 
                                 <input
+                                    type="tel"
+                                    inputMode="numeric"
+                                    maxLength={11}
                                     name="phone"
                                     value={form.phone}
                                     onChange={handleChange}

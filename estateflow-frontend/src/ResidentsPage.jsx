@@ -263,6 +263,12 @@ export default function ResidentsPage() {
             return;
         }
 
+        if (!/^\d{11}$/.test(form.phoneNumber.trim())) {
+            showError("Phone number must contain exactly 11 digits.");
+            setError("Phone number must contain exactly 11 digits.");
+            return;
+        }
+
         if (!form.houseNumber.trim()) {
             showError("House number is required.");
             setError("House number is required.");
@@ -1322,6 +1328,9 @@ export default function ResidentsPage() {
                                         <label>Phone Number</label>
 
                                         <input
+                                            type="tel"
+                                            inputMode="numeric"
+                                            maxLength={11}
                                             name="phoneNumber"
                                             value={form.phoneNumber}
                                             onChange={handleChange}

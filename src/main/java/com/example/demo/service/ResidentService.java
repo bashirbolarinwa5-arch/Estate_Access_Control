@@ -66,6 +66,8 @@ public class ResidentService {
 
             throw new RuntimeException("Phone number is required");
         }
+        request.setPhoneNumber(PhoneNumberValidator.requireElevenDigits(
+                request.getPhoneNumber(), "Phone number"));
 
         if (request.getHouseNumber() == null ||
                 request.getHouseNumber().isBlank()) {
@@ -390,6 +392,9 @@ public class ResidentService {
     public Resident updateResident(
             Long id,
             Resident resident) {
+
+        resident.setPhoneNumber(PhoneNumberValidator.requireElevenDigits(
+                resident.getPhoneNumber(), "Phone number"));
 
         Resident existingResident =
                 repository.findById(id)
