@@ -64,7 +64,7 @@ function Login() {
     };
 
     return (
-        <div className="login-page">
+        <div className="login-page" role="main">
 
             <div className="login-background-shape login-shape-one"></div>
             <div className="login-background-shape login-shape-two"></div>
