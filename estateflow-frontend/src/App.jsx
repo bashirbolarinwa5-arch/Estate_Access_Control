@@ -154,12 +154,6 @@ function Sidebar({
         },
 
         {
-            name: "Visitors",
-            icon: <UserRound size={20} />,
-            path: "/visitors",
-        },
-
-        {
             name: "Visits",
             icon: <CalendarDays size={20} />,
             path: "/visits",
@@ -612,7 +606,6 @@ function MainLayout() {
     const securityAllowedPaths = [
 
         "/",
-        "/visitors",
         "/visits",
         "/security",
         "/activity-logs",

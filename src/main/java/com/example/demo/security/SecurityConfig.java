@@ -138,19 +138,19 @@ public class SecurityConfig {
 
                         // Visitor management
                         .requestMatchers(HttpMethod.GET, "/visitor")
-                        .hasAnyRole("ADMIN", "SECURITY")
+                        .hasRole("ADMIN")
 
                         .requestMatchers(HttpMethod.GET, "/visitor/{id}")
-                        .hasAnyRole("ADMIN", "SECURITY")
+                        .hasRole("ADMIN")
 
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/visitor/resident/{residentId}"
                         )
-                        .hasAnyRole("ADMIN", "SECURITY", "RESIDENT")
+                        .hasAnyRole("ADMIN", "RESIDENT")
 
                         .requestMatchers(HttpMethod.PUT, "/visitor/{id}")
-                        .hasAnyRole("ADMIN", "SECURITY")
+                        .hasRole("ADMIN")
 
                         .requestMatchers(HttpMethod.DELETE, "/visitor/{id}")
                         .hasRole("ADMIN")

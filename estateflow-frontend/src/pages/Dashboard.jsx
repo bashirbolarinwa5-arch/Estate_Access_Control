@@ -513,7 +513,6 @@ function SecurityDashboard() {
     const { user } = useAuth();
     const navigate = useNavigate();
 
-    const [visitors, setVisitors] = useState([]);
     const [visits, setVisits] = useState([]);
 
     const [loading, setLoading] = useState(true);
@@ -527,13 +526,7 @@ function SecurityDashboard() {
         setError("");
 
         try {
-            const [
-                visitorResponse,
-                visitResponse,
-            ] = await Promise.all([
-                api.get("/visitor"),
-                api.get("/visit"),
-            ]);
+            const visitResponse = await api.get("/visit");
 
             const getData = (response) => {
                 const data = response.data;
@@ -549,7 +542,6 @@ function SecurityDashboard() {
                 return [];
             };
 
-            setVisitors(getData(visitorResponse));
             setVisits(getData(visitResponse));
 
         } catch (err) {
@@ -575,13 +567,7 @@ function SecurityDashboard() {
 
         async function loadInitialDashboard() {
             try {
-                const [
-                    visitorResponse,
-                    visitResponse,
-                ] = await Promise.all([
-                    api.get("/visitor"),
-                    api.get("/visit"),
-                ]);
+                const visitResponse = await api.get("/visit");
 
                 if (!active) {
                     return;
@@ -601,7 +587,6 @@ function SecurityDashboard() {
                     return [];
                 };
 
-                setVisitors(getData(visitorResponse));
                 setVisits(getData(visitResponse));
             } catch (err) {
                 console.error(
@@ -835,19 +820,6 @@ function SecurityDashboard() {
                     iconClass="green"
                 />
 
-                <StatCard
-                    icon={
-                        <UserRound size={21} />
-                    }
-                    label="Visitors"
-                    value={
-                        visitors.length
-                    }
-                    description="Registered visitors"
-                    loading={loading}
-                    iconClass="purple"
-                />
-
             </div>
 
             {/* SECURITY ACTIONS */}
@@ -919,31 +891,6 @@ function SecurityDashboard() {
 
                             <span>
                                 Review scheduled visits
-                            </span>
-                        </div>
-
-                        <ArrowRight size={18} />
-                    </button>
-
-                    <button
-                        className="security-action-card"
-                        onClick={() =>
-                            navigate("/visitors")
-                        }
-                    >
-                        <div className="security-action-icon">
-                            <UserRound
-                                size={21}
-                            />
-                        </div>
-
-                        <div>
-                            <strong>
-                                Visitors
-                            </strong>
-
-                            <span>
-                                View visitor records
                             </span>
                         </div>
 
