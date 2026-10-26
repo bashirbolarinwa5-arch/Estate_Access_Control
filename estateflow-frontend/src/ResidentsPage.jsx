@@ -769,7 +769,9 @@ export default function ResidentsPage() {
     border-radius: 22px;
     box-shadow: 0 30px 80px rgba(15,23,42,.22);
     overflow: hidden;
-    max-height: calc(100vh - 40px);
+    /* dvh keeps the modal inside the dynamic mobile viewport
+       (address bar safe) while 100vh does not. */
+    max-height: calc(100dvh - 40px);
 }
 
 .resident-modal form {
