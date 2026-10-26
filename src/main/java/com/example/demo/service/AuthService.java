@@ -177,7 +177,8 @@ public class AuthService {
         return new LoginResponse(
                 token,
                 user.getUsername(),
-                user.getRole()
+                user.getRole(),
+                Boolean.TRUE.equals(user.getMustChangePassword())
         );
 
     }
@@ -208,10 +209,10 @@ public class AuthService {
         }
 
         if (newPassword == null ||
-                newPassword.trim().length() < 6) {
+                newPassword.trim().length() < 8) {
 
             throw new RuntimeException(
-                    "New password must be at least 6 characters");
+                    "New password must be at least 8 characters");
         }
 
         /*
@@ -232,6 +233,13 @@ public class AuthService {
         }
 
         user.setPassword(passwordEncoder.encode(newPassword));
+
+        /*
+         * The account now has a password its owner chose,
+         * so the forced-change gate is lifted.
+         */
+        user.setMustChangePassword(false);
+
         userRepository.save(user);
 
         activityLogService.logForUser(

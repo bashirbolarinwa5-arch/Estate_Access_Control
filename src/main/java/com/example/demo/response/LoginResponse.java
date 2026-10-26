@@ -12,4 +12,11 @@ public class LoginResponse {
     private String username;
     private Role role;
 
+    /*
+     * True when the account is still using a temporary
+     * password. The client must send the user to the
+     * change-password screen before anything else.
+     */
+    private Boolean mustChangePassword;
+
 }

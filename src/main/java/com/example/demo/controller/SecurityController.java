@@ -3,7 +3,8 @@ package com.example.demo.controller;
 import com.example.demo.entity.Security;
 import com.example.demo.entity.Visit;
 import com.example.demo.response.ApiResponse;
-import com.example.demo.response.BulkUsersResult;
+import com.example.demo.response.BulkImportResult;
+import com.example.demo.response.PasswordResetResult;
 import com.example.demo.response.SecurityRequest;
 import com.example.demo.service.SecurityService;
 import org.springframework.web.bind.annotation.*;
@@ -52,15 +53,30 @@ public class SecurityController {
 
     // BULK CREATE SECURITY PERSONNEL
     @PostMapping("/bulk")
-    public ApiResponse<BulkUsersResult> createSecurities(
+    public ApiResponse<BulkImportResult> createSecurities(
             @RequestBody List<SecurityRequest> requests) {
 
-        BulkUsersResult result =
+        BulkImportResult result =
                 security.createSecurities(requests);
 
         return new ApiResponse<>(
                 true,
                 "Bulk security creation finished",
+                result
+        );
+    }
+
+    // RESET A SECURITY OFFICER'S PASSWORD (ADMIN)
+    @PostMapping("/{id}/reset-password")
+    public ApiResponse<PasswordResetResult> resetPassword(
+            @PathVariable Long id) {
+
+        PasswordResetResult result =
+                security.resetPassword(id);
+
+        return new ApiResponse<>(
+                true,
+                "Password reset successfully",
                 result
         );
     }

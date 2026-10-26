@@ -63,6 +63,29 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // the request even though the token itself is valid.
             if (user != null && Boolean.TRUE.equals(user.getActive())) {
 
+                /*
+                 * A temporary password unlocks exactly one
+                 * route: the password-change screen. Everything
+                 * else is refused here, so the gate cannot be
+                 * bypassed by calling the API directly.
+                 */
+                if (Boolean.TRUE.equals(user.getMustChangePassword())
+                        && !isPasswordChangeRequest(request)) {
+
+                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    response.setContentType("application/json");
+                    response.setCharacterEncoding("UTF-8");
+
+                    response.getWriter().write(
+                            "{\"success\":false,"
+                                    + "\"message\":\"Please change your "
+                                    + "password before continuing\","
+                                    + "\"data\":null}"
+                    );
+
+                    return;
+                }
+
                 System.out.println("JWT USERNAME: " + user.getUsername());
                 System.out.println("JWT ROLE: " + user.getRole().name());
 
@@ -84,5 +107,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private boolean isPasswordChangeRequest(
+            HttpServletRequest request) {
+
+        return "POST".equalsIgnoreCase(request.getMethod())
+                && "/api/me/change-password".equals(
+                        request.getRequestURI()
+                );
     }
 }

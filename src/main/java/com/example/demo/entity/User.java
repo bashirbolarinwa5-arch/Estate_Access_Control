@@ -44,6 +44,21 @@ public class User {
 
 
     /*
+     * True when the current password is a system-generated
+     * temporary password.
+     *
+     * Login still succeeds (the user needs the token to reach
+     * the change-password screen), but every other protected
+     * endpoint is blocked until the password is replaced.
+     *
+     * The column default keeps existing accounts unaffected
+     * when Hibernate adds the column to an existing database.
+     */
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private Boolean mustChangePassword = false;
+
+
+    /*
      * The estate this account operates in.
      *
      * NULL means the account belongs to the platform,

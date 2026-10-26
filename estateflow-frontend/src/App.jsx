@@ -579,6 +579,32 @@ function MainLayout() {
 
 
     /* =====================================================
+       FORCED PASSWORD CHANGE
+       ===================================================== */
+
+    const location = useLocation();
+
+    const mustChangePassword =
+        Boolean(user?.mustChangePassword);
+
+
+    const forcedChangePath = "/account/password";
+
+    if (
+        mustChangePassword &&
+        location.pathname !== forcedChangePath
+    ) {
+
+        return (
+            <Navigate
+                to={forcedChangePath}
+                replace
+            />
+        );
+    }
+
+
+    /* =====================================================
        ALLOWED PATHS
        ===================================================== */
 

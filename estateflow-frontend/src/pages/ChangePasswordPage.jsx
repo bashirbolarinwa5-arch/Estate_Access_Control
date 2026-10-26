@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import api from "../services/api";
 import { useAuth } from "../context/useAuth";
@@ -8,6 +9,10 @@ import { LockKeyhole, KeyRound } from "lucide-react";
 
 /*
  * Self-service password change, available to every role.
+ *
+ * When the account was created with a temporary password the
+ * backend forces this screen (the rest of the app redirects
+ * here). Afterwards it stays available as a voluntary change.
  *
  * The form is intentionally simple: verify the current
  * password, set a new one, confirm the new one. All real
@@ -22,8 +27,11 @@ function ChangePasswordPage() {
     const [fieldError, setFieldError] = useState("");
     const [saving, setSaving] = useState(false);
 
-    const { user } = useAuth();
+    const { user, clearMustChangePassword } = useAuth();
     const { showSuccess, showError } = useToast();
+    const navigate = useNavigate();
+
+    const isForced = Boolean(user?.mustChangePassword);
 
     const handleSubmit = async (event) => {
         event.preventDefault();
@@ -35,9 +43,9 @@ function ChangePasswordPage() {
             return;
         }
 
-        if (newPassword.trim().length < 6) {
+        if (newPassword.trim().length < 8) {
             setFieldError(
-                "New password must be at least 6 characters."
+                "New password must be at least 8 characters."
             );
             return;
         }
@@ -62,11 +70,28 @@ function ChangePasswordPage() {
                 newPassword,
             });
 
-            showSuccess("Password changed successfully.");
+            showSuccess(
+                isForced
+                    ? "Password updated. You can now sign in with it."
+                    : "Password changed successfully."
+            );
+
+            clearMustChangePassword();
 
             setCurrentPassword("");
             setNewPassword("");
             setConfirmPassword("");
+
+            if (isForced) {
+                navigate(
+                    user?.role === "ROLE_SUPER_ADMIN"
+                        ? "/super-admin/admins"
+                        : "/",
+                    {
+                        replace: true,
+                    }
+                );
+            }
         } catch (error) {
             const message =
                 error.response?.data?.message ||
@@ -214,13 +239,15 @@ function ChangePasswordPage() {
             <div className="change-password-hero">
                 <h1>
                     <KeyRound size={20} />
-                    Change Password
+                    {isForced ? "Set a new password" : "Change Password"}
                 </h1>
 
                 <p>
-                    Signed in as{" "}
-                    <code>{user?.username || "—"}</code>. Use this
-                    to update your own login password.
+                    {isForced
+                        ? "Your temporary password is active. Choose a new password to finish setting up this account."
+                        : `Signed in as ${
+                            user?.username || "—"
+                        }. Use this to update your own login password.`}
                 </p>
             </div>
 
@@ -259,7 +286,7 @@ function ChangePasswordPage() {
 
                 <div className="change-password-field">
                     <label htmlFor="newPassword">
-                        New password (at least 6 characters)
+                        New password (at least 8 characters)
                     </label>
 
                     <div className="change-password-input-wrap">

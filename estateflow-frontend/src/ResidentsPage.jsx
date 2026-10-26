@@ -4,6 +4,7 @@ import {
     AlertCircle,
     CheckCircle2,
     Edit3,
+    KeyRound,
     Mail,
     Phone,
     Plus,
@@ -16,7 +17,8 @@ import {
 } from "lucide-react";
 
 import { useToast } from "./components/useToast";
-import BulkCreateModal from "./components/BulkCreateModal";
+import BulkImportModal from "./components/BulkImportModal";
+import TempPasswordModal from "./components/TempPasswordModal";
 
 const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL ||
@@ -101,6 +103,19 @@ function getInitials(name) {
         .join("");
 }
 
+/*
+ * Imported residents without an email get an internal
+ * placeholder so the database's NOT NULL + UNIQUE column stays
+ * valid. It is not a real address, so never show it.
+ */
+function displayEmail(email) {
+    if (!email || email.toLowerCase().endsWith("@estateflow.local")) {
+        return "—";
+    }
+
+    return email;
+}
+
 export default function ResidentsPage() {
     const { showSuccess, showError } = useToast();
 
@@ -116,6 +131,9 @@ export default function ResidentsPage() {
 
     const [showModal, setShowModal] = useState(false);
     const [editingResident, setEditingResident] = useState(null);
+
+    const [resettingId, setResettingId] = useState(null);
+    const [resetResult, setResetResult] = useState(null);
 
     const [form, setForm] = useState(emptyForm);
 
@@ -358,6 +376,37 @@ export default function ResidentsPage() {
 
             showError(message);
             setError(message);
+        }
+    }
+
+    async function handleResetPassword(resident) {
+        const confirmed = window.confirm(
+            `Reset the password for ${resident.fullName}? Their current password stops working immediately.`
+        );
+
+        if (!confirmed) return;
+
+        setResettingId(resident.id);
+
+        try {
+            const response = await apiRequest(
+                `/resident/${resident.id}/reset-password`,
+                { method: "POST" }
+            );
+
+            const data = getData(response);
+
+            setResetResult({
+                name: resident.fullName,
+                username: data?.username || "",
+                password: data?.temporaryPassword || "",
+            });
+
+            showSuccess("Password reset. Hand over the new temporary password.");
+        } catch (err) {
+            showError(err.message || "Unable to reset the password.");
+        } finally {
+            setResettingId(null);
         }
     }
 
@@ -983,33 +1032,24 @@ export default function ResidentsPage() {
                 </div>
             </div>
 
-            <BulkCreateModal
+            <BulkImportModal
                 key={showBulkModal ? "bulk-open" : "bulk-closed"}
                 open={showBulkModal}
                 onClose={() => setShowBulkModal(false)}
                 onCreated={() => loadResidents()}
-                title="Bulk Create Residents"
-                subtitle="Paste a JSON array of residents. Each entry becomes a resident account in this estate."
+                kind="resident"
+                title="Import Residents"
+                subtitle="Upload your CSV or Excel sheet. Columns are mapped next, temporary passwords are generated, and each account must be changed at first login."
                 endpoint="/resident/bulk"
-                fields={[
-                    "fullName",
-                    "phoneNumber",
-                    "houseNumber",
-                    "email",
-                    "username",
-                    "password",
-                ]}
-                successNoun="residents"
-                sample={`[
-  {
-    "fullName": "Adaeze Okonkwo",
-    "phoneNumber": "08012345678",
-    "houseNumber": "12B",
-    "email": "adaeze@example.com",
-    "username": "adaeze",
-    "password": "Str0ng!Pass"
-  }
-]`}
+            />
+
+            <TempPasswordModal
+                open={Boolean(resetResult)}
+                title="Resident password reset"
+                personName={resetResult?.name}
+                username={resetResult?.username}
+                password={resetResult?.password}
+                onClose={() => setResetResult(null)}
             />
 
             {error && (
@@ -1155,7 +1195,7 @@ export default function ResidentsPage() {
                                     <td>
                                         <div className="resident-contact">
                                             <Mail size={14} />
-                                            {resident.email || "—"}
+                                            {displayEmail(resident.email)}
                                         </div>
                                     </td>
 
@@ -1169,6 +1209,24 @@ export default function ResidentsPage() {
                                                 }
                                             >
                                                 <Edit3 size={15} />
+                                            </button>
+
+                                            <button
+                                                className="resident-action"
+                                                title="Reset password"
+                                                onClick={() =>
+                                                    handleResetPassword(resident)
+                                                }
+                                                disabled={resettingId === resident.id}
+                                            >
+                                                {resettingId === resident.id ? (
+                                                    <RefreshCw
+                                                        size={15}
+                                                        className="resident-refresh-spin"
+                                                    />
+                                                ) : (
+                                                    <KeyRound size={15} />
+                                                )}
                                             </button>
 
                                             <button

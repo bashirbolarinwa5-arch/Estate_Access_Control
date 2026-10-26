@@ -2,7 +2,8 @@ package com.example.demo.controller;
 
 import com.example.demo.entity.Resident;
 import com.example.demo.response.ApiResponse;
-import com.example.demo.response.BulkUsersResult;
+import com.example.demo.response.BulkImportResult;
+import com.example.demo.response.PasswordResetResult;
 import com.example.demo.response.ResidentCreateRequest;
 import com.example.demo.service.ResidentService;
 import org.springframework.http.ResponseEntity;
@@ -37,15 +38,30 @@ public class ResidentController {
 
     // BULK CREATE RESIDENTS
     @PostMapping("/bulk")
-    public ApiResponse<BulkUsersResult> createResidents(
+    public ApiResponse<BulkImportResult> createResidents(
             @RequestBody List<ResidentCreateRequest> requests) {
 
-        BulkUsersResult result =
+        BulkImportResult result =
                 residentService.createResidents(requests);
 
         return new ApiResponse<>(
                 true,
                 "Bulk resident creation finished",
+                result
+        );
+    }
+
+    // RESET A RESIDENT'S PASSWORD (ADMIN)
+    @PostMapping("/{id}/reset-password")
+    public ApiResponse<PasswordResetResult> resetPassword(
+            @PathVariable Long id) {
+
+        PasswordResetResult result =
+                residentService.resetPassword(id);
+
+        return new ApiResponse<>(
+                true,
+                "Password reset successfully",
                 result
         );
     }

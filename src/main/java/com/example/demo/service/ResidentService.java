@@ -6,7 +6,8 @@ import com.example.demo.entity.Role;
 import com.example.demo.entity.User;
 import com.example.demo.repository.ResidentRepository;
 import com.example.demo.repository.UserRepository;
-import com.example.demo.response.BulkUsersResult;
+import com.example.demo.response.BulkImportResult;
+import com.example.demo.response.PasswordResetResult;
 import com.example.demo.response.ResidentCreateRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -28,19 +29,22 @@ public class ResidentService {
     private final PasswordEncoder passwordEncoder;
     private final ActivityLogService activityLogService;
     private final CurrentUserService currentUserService;
+    private final CredentialService credentialService;
 
     public ResidentService(
             ResidentRepository repository,
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             ActivityLogService activityLogService,
-            CurrentUserService currentUserService) {
+            CurrentUserService currentUserService,
+            CredentialService credentialService) {
 
         this.repository = repository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.activityLogService = activityLogService;
         this.currentUserService = currentUserService;
+        this.credentialService = credentialService;
     }
 
     // CREATE RESIDENT + USER ACCOUNT
@@ -64,12 +68,12 @@ public class ResidentService {
             throw new RuntimeException("House number is required");
         }
 
-        if (request.getEmail() == null ||
-                request.getEmail().isBlank()) {
-
-            throw new RuntimeException("Email is required");
-        }
-
+        /*
+         * Email is optional for imported residents. The column
+         * in the database is NOT NULL + UNIQUE, so a resident
+         * without one gets an internal placeholder derived from
+         * the (unique) username. The UI hides these addresses.
+         */
         if (request.getUsername() == null ||
                 request.getUsername().isBlank()) {
 
@@ -82,10 +86,19 @@ public class ResidentService {
             throw new RuntimeException("Password is required");
         }
 
-        String cleanEmail = request.getEmail().trim();
         String cleanUsername = request.getUsername().trim();
 
-        if (repository.existsByEmail(cleanEmail)) {
+        String cleanEmail = request.getEmail() == null
+                ? ""
+                : request.getEmail().trim();
+
+        boolean hasRealEmail = !cleanEmail.isEmpty();
+
+        if (!hasRealEmail) {
+            cleanEmail = cleanUsername + "@estateflow.local";
+        }
+
+        if (hasRealEmail && repository.existsByEmail(cleanEmail)) {
             throw new RuntimeException("Email already exists");
         }
 
@@ -136,41 +149,132 @@ public class ResidentService {
         return savedResident;
     }
 
-    // BULK CREATE RESIDENTS
-    public BulkUsersResult createResidents(
+    // BULK CREATE RESIDENTS (CSV / EXCEL IMPORT)
+    public BulkImportResult createResidents(
             List<ResidentCreateRequest> requests) {
 
-        List<Resident> created = new ArrayList<>();
+        BulkImportResult result = new BulkImportResult();
 
-        List<Map<String, String>> failed = new ArrayList<>();
+        for (int index = 0; index < requests.size(); index++) {
 
-        for (ResidentCreateRequest request : requests) {
+            ResidentCreateRequest request = requests.get(index);
+
+            BulkImportResult.RowResult row =
+                    new BulkImportResult.RowResult();
+
+            row.setRow(index + 1);
+            row.setFullName(request.getFullName());
+            row.setHouseNumber(request.getHouseNumber());
+
+            String username = request.getUsername();
+            String generatedPassword = null;
 
             try {
 
-                created.add(createResident(request));
+                if (username == null || username.isBlank()) {
+
+                    username = credentialService.generateUsername(
+                            request.getFullName(),
+                            request.getHouseNumber()
+                    );
+
+                    request.setUsername(username);
+                }
+
+                username = username.trim();
+                request.setUsername(username);
+
+                if (request.getPassword() == null ||
+                        request.getPassword().isBlank()) {
+
+                    generatedPassword =
+                            credentialService.generateTemporaryPassword();
+
+                    request.setPassword(generatedPassword);
+                }
+
+                Resident created = createResident(request);
+
+                if (generatedPassword != null) {
+
+                    User user = created.getUser();
+
+                    user.setMustChangePassword(true);
+
+                    userRepository.save(user);
+                }
+
+                row.setSuccess(true);
+                row.setUsername(username);
+                row.setTemporaryPassword(generatedPassword);
 
             } catch (RuntimeException ex) {
 
-                Map<String, String> failure = new HashMap<>();
-
-                failure.put(
-                        "username",
-                        request.getUsername() == null
+                row.setSuccess(false);
+                row.setUsername(
+                        username == null || username.isBlank()
                                 ? "unknown"
-                                : request.getUsername()
+                                : username
                 );
-
-                failure.put(
-                        "reason",
-                        ex.getMessage()
-                );
-
-                failed.add(failure);
+                row.setReason(ex.getMessage());
             }
+
+            result.add(row);
         }
 
-        return new BulkUsersResult(created, failed);
+        return result;
+    }
+
+    /*
+     * Admin-triggered password reset.
+     *
+     * Generates a fresh temporary password, invalidates the
+     * previous one, and forces a change on next login.
+     */
+    public PasswordResetResult resetPassword(Long id) {
+
+        Resident resident = repository.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException("Resident not found")
+                );
+
+        currentUserService.verifySameEstate(
+                currentUserService.getRequiredEstate(),
+                resident.getUser() == null
+                        ? null
+                        : resident.getUser().getEstate()
+        );
+
+        User user = resident.getUser();
+
+        if (user == null) {
+            throw new RuntimeException(
+                    "This resident has no login account"
+            );
+        }
+
+        String temporaryPassword =
+                credentialService.generateTemporaryPassword();
+
+        user.setPassword(
+                passwordEncoder.encode(temporaryPassword)
+        );
+
+        user.setMustChangePassword(true);
+
+        userRepository.save(user);
+
+        activityLogService.log(
+                "ADMIN",
+                "PASSWORD_RESET",
+                "Password reset for resident "
+                        + resident.getFullName()
+        );
+
+        return new PasswordResetResult(
+                user.getUsername(),
+                temporaryPassword
+        );
     }
 
     // GET ALL RESIDENTS

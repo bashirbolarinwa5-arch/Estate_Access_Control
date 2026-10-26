@@ -1,6 +1,6 @@
 package com.example.demo.service;
 
-import com.example.demo.response.BulkUsersResult;
+import com.example.demo.response.BulkImportResult;
 import com.example.demo.entity.Estate;
 import com.example.demo.entity.Role;
 import com.example.demo.entity.Security;
@@ -8,14 +8,12 @@ import com.example.demo.entity.User;
 import com.example.demo.entity.Visit;
 import com.example.demo.repository.SecurityRepository;
 import com.example.demo.repository.UserRepository;
+import com.example.demo.response.PasswordResetResult;
 import com.example.demo.response.SecurityRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Service
 public class SecurityService {
@@ -25,19 +23,22 @@ public class SecurityService {
     private final PasswordEncoder passwordEncoder;
     private final VisitService visitService;
     private final CurrentUserService currentUserService;
+    private final CredentialService credentialService;
 
     public SecurityService(
             SecurityRepository securityRepository,
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             VisitService visitService,
-            CurrentUserService currentUserService) {
+            CurrentUserService currentUserService,
+            CredentialService credentialService) {
 
         this.securityRepository = securityRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.visitService = visitService;
         this.currentUserService = currentUserService;
+        this.credentialService = credentialService;
     }
 
     // CREATE SECURITY
@@ -105,17 +106,56 @@ public class SecurityService {
         return securityRepository.save(security);
     }
 
-    // BULK CREATE SECURITY PERSONNEL
-    public BulkUsersResult createSecurities(
+    // BULK CREATE SECURITY PERSONNEL (CSV / EXCEL IMPORT)
+    public BulkImportResult createSecurities(
             List<SecurityRequest> requests) {
 
-        List<Security> created = new ArrayList<>();
+        BulkImportResult result = new BulkImportResult();
 
-        List<Map<String, String>> failed = new ArrayList<>();
+        for (int index = 0; index < requests.size(); index++) {
 
-        for (SecurityRequest request : requests) {
+            SecurityRequest request = requests.get(index);
+
+            BulkImportResult.RowResult row =
+                    new BulkImportResult.RowResult();
+
+            row.setRow(index + 1);
+            row.setFullName(request.getName());
+
+            String username = request.getUsername();
+            String generatedPassword = null;
 
             try {
+
+                if (request.getName() == null ||
+                        request.getName().isBlank()) {
+
+                    throw new RuntimeException(
+                            "Name is required"
+                    );
+                }
+
+                if (username == null || username.isBlank()) {
+
+                    username = credentialService.generateUsername(
+                            request.getName(),
+                            null
+                    );
+
+                    request.setUsername(username);
+                }
+
+                username = username.trim();
+                request.setUsername(username);
+
+                if (request.getPassword() == null ||
+                        request.getPassword().isBlank()) {
+
+                    generatedPassword =
+                            credentialService.generateTemporaryPassword();
+
+                    request.setPassword(generatedPassword);
+                }
 
                 /*
                  * The single-create controller builds this entity
@@ -126,7 +166,7 @@ public class SecurityService {
                 Security securityPerson = new Security();
 
                 securityPerson.setName(
-                        request.getName()
+                        request.getName().trim()
                 );
 
                 securityPerson.setPhoneNumber(
@@ -137,35 +177,82 @@ public class SecurityService {
                         request.getEmail()
                 );
 
-                created.add(
-                        createSecurity(
-                                securityPerson,
-                                request.getUsername(),
-                                request.getPassword()
-                        )
+                Security created = createSecurity(
+                        securityPerson,
+                        username,
+                        request.getPassword()
                 );
+
+                if (generatedPassword != null) {
+
+                    User user = created.getUser();
+
+                    user.setMustChangePassword(true);
+
+                    userRepository.save(user);
+                }
+
+                row.setSuccess(true);
+                row.setUsername(username);
+                row.setTemporaryPassword(generatedPassword);
 
             } catch (RuntimeException ex) {
 
-                Map<String, String> failure = new HashMap<>();
-
-                failure.put(
-                        "username",
-                        request.getUsername() == null
+                row.setSuccess(false);
+                row.setUsername(
+                        username == null || username.isBlank()
                                 ? "unknown"
-                                : request.getUsername()
+                                : username
                 );
-
-                failure.put(
-                        "reason",
-                        ex.getMessage()
-                );
-
-                failed.add(failure);
+                row.setReason(ex.getMessage());
             }
+
+            result.add(row);
         }
 
-        return new BulkUsersResult(created, failed);
+        return result;
+    }
+
+    /*
+     * Admin-triggered password reset for a security officer.
+     */
+    public PasswordResetResult resetPassword(Long id) {
+
+        Security securityPerson = securityRepository.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException("security not found")
+                );
+
+        currentUserService.verifySameEstate(
+                currentUserService.getRequiredEstate(),
+                securityPerson.getUser() == null
+                        ? null
+                        : securityPerson.getUser().getEstate()
+        );
+
+        User user = securityPerson.getUser();
+
+        if (user == null) {
+            throw new RuntimeException(
+                    "This security officer has no login account"
+            );
+        }
+
+        String temporaryPassword =
+                credentialService.generateTemporaryPassword();
+
+        user.setPassword(
+                passwordEncoder.encode(temporaryPassword)
+        );
+
+        user.setMustChangePassword(true);
+
+        userRepository.save(user);
+
+        return new PasswordResetResult(
+                user.getUsername(),
+                temporaryPassword
+        );
     }
 
     // GET ALL SECURITY

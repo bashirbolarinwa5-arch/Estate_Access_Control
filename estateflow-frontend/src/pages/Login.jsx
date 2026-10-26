@@ -44,7 +44,16 @@ function Login() {
              * The platform owner works from the super admin
              * dashboard; estate roles land on the shared
              * dashboard, which renders per role.
+             *
+             * Accounts created through the bulk import (or
+             * reset by an admin) arrive with mustChangePassword
+             * and are sent to the change-password screen first.
              */
+            if (authData?.mustChangePassword) {
+                navigate("/account/password");
+                return;
+            }
+
             navigate(
                 actualRole === "ROLE_SUPER_ADMIN"
                     ? "/super-admin/admins"

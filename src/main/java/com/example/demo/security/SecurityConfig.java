@@ -102,6 +102,12 @@ public class SecurityConfig {
                         )
                         .hasRole("ADMIN")
 
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/resident/*/reset-password"
+                        )
+                        .hasRole("ADMIN")
+
                         .requestMatchers(HttpMethod.GET, "/resident")
                         .hasAnyRole("ADMIN", "SECURITY")
 
@@ -199,6 +205,12 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/security/bulk"
+                        )
+                        .hasRole("ADMIN")
+
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/security/*/reset-password"
                         )
                         .hasRole("ADMIN")
 

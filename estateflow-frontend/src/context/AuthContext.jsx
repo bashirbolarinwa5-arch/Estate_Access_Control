@@ -1,6 +1,4 @@
-import {
-    useState,
-} from "react";
+import { useState } from "react";
 
 import { AuthContext } from "./authContextValue";
 
@@ -43,6 +41,14 @@ export function AuthProvider({ children }) {
             token: authData.token,
             username: authData.username,
             role: authData.role,
+
+            /*
+             * Temporary passwords force a change on the
+             * change-password screen the first time the user
+             * signs in.
+             */
+            mustChangePassword:
+                Boolean(authData.mustChangePassword),
         };
 
         localStorage.setItem(
@@ -51,6 +57,29 @@ export function AuthProvider({ children }) {
         );
 
         setUser(userData);
+    }
+
+
+    function clearMustChangePassword() {
+
+        setUser((current) => {
+
+            if (!current) {
+                return current;
+            }
+
+            const updated = {
+                ...current,
+                mustChangePassword: false,
+            };
+
+            localStorage.setItem(
+                "estateflow_auth",
+                JSON.stringify(updated)
+            );
+
+            return updated;
+        });
     }
 
 
@@ -65,11 +94,13 @@ export function AuthProvider({ children }) {
 
 
     return (
+
         <AuthContext.Provider
             value={{
                 user,
                 loginUser,
                 logout,
+                clearMustChangePassword,
             }}
         >
             {children}

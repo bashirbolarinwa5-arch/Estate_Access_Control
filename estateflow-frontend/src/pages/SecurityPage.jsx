@@ -24,7 +24,8 @@ import api from "../services/api";
 import { useAuth } from "../context/useAuth";
 
 import { useToast } from "../components/useToast";
-import BulkCreateModal from "../components/BulkCreateModal";
+import BulkImportModal from "../components/BulkImportModal";
+import TempPasswordModal from "../components/TempPasswordModal";
 
 function getResponseData(response) {
     return response?.data?.data ?? response?.data;
@@ -50,6 +51,9 @@ function SecurityPage() {
     const [showSecurityModal, setShowSecurityModal] = useState(false);
     const [showBulkSecurityModal, setShowBulkSecurityModal] = useState(false);
     const [editingSecurityId, setEditingSecurityId] = useState(null);
+
+    const [resettingSecurityId, setResettingSecurityId] = useState(null);
+    const [resetSecurityResult, setResetSecurityResult] = useState(null);
 
     const [securityName, setSecurityName] = useState("");
     const [securityPhone, setSecurityPhone] = useState("");
@@ -369,6 +373,41 @@ function SecurityPage() {
             setError(message);
         } finally {
             setProcessingSecurityId(null);
+        }
+    }
+
+    async function handleResetSecurityPassword(person) {
+        const confirmed = window.confirm(
+            `Reset the password for ${person.name || "this security officer"}? Their current password stops working immediately.`
+        );
+
+        if (!confirmed) return;
+
+        try {
+            setResettingSecurityId(person.id);
+
+            const response = await api.post(
+                `/security/${person.id}/reset-password`
+            );
+
+            const data = getResponseData(response);
+
+            setResetSecurityResult({
+                name: person.name || "Security officer",
+                username: data?.username || "",
+                password: data?.temporaryPassword || "",
+            });
+
+            showSuccess("Password reset. Hand over the new temporary password.");
+        } catch (err) {
+            console.error("Failed to reset security password:", err);
+
+            showError(
+                err.response?.data?.message ||
+                "Failed to reset the password."
+            );
+        } finally {
+            setResettingSecurityId(null);
         }
     }
 
@@ -958,31 +997,24 @@ if (isSecurity) {
                 )}
             </section>
 
-            <BulkCreateModal
+            <BulkImportModal
                 key={showBulkSecurityModal ? "bulk-open" : "bulk-closed"}
                 open={showBulkSecurityModal}
                 onClose={() => setShowBulkSecurityModal(false)}
                 onCreated={() => loadSecurityPersonnel()}
-                title="Bulk Create Security Personnel"
-                subtitle="Paste a JSON array of security personnel. Each entry becomes a security account in this estate."
+                kind="security"
+                title="Import Security Personnel"
+                subtitle="Upload your CSV or Excel sheet. Columns are mapped next, temporary passwords are generated, and each account must be changed at first login."
                 endpoint="/security/bulk"
-                fields={[
-                    "name",
-                    "phoneNumber",
-                    "email",
-                    "username",
-                    "password",
-                ]}
-                successNoun="security accounts"
-                sample={`[
-  {
-    "name": "Tunde Balogun",
-    "phoneNumber": "08076543210",
-    "email": "tunde@example.com",
-    "username": "tundeb",
-    "password": "Str0ng!Pass"
-  }
-]`}
+            />
+
+            <TempPasswordModal
+                open={Boolean(resetSecurityResult)}
+                title="Security password reset"
+                personName={resetSecurityResult?.name}
+                username={resetSecurityResult?.username}
+                password={resetSecurityResult?.password}
+                onClose={() => setResetSecurityResult(null)}
             />
 
             {showWalkInForm && (
@@ -1286,6 +1318,17 @@ return (
                                     </td>
                                     <td>
                                         <div className="security-actions-row">
+                                            <button
+                                                type="button"
+                                                className="security-table-button edit"
+                                                onClick={() => handleResetSecurityPassword(person)}
+                                                disabled={isProcessing || resettingSecurityId === person.id}
+                                            >
+                                                {resettingSecurityId === person.id
+                                                    ? <RefreshCw size={14} className="security-small-spinner" />
+                                                    : <KeyRound size={14} />}
+                                                Reset
+                                            </button>
                                             <button
                                                 type="button"
                                                 className="security-table-button edit"
