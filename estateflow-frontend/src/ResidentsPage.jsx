@@ -765,6 +765,8 @@ export default function ResidentsPage() {
 .resident-modal {
     width: 100%;
     max-width: 530px;
+    display: flex;
+    flex-direction: column;
     background: white;
     border-radius: 22px;
     box-shadow: 0 30px 80px rgba(15,23,42,.22);
@@ -776,11 +778,14 @@ export default function ResidentsPage() {
 
 .resident-modal form {
     min-height: 0;
+    flex: 1 1 auto;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 .resident-modal-header {
+    flex: 0 0 auto;
     padding: 22px 24px;
     display: flex;
     justify-content: space-between;
@@ -833,6 +838,8 @@ export default function ResidentsPage() {
 .resident-modal-body {
     padding: 24px;
     overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
     min-height: 0;
     flex: 1 1 auto;
 }
@@ -894,6 +901,7 @@ export default function ResidentsPage() {
 }
 
 .resident-modal-footer {
+    flex: 0 0 auto;
     padding: 16px 24px 22px;
     display: flex;
     justify-content: flex-end;
