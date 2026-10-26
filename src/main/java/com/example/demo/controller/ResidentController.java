@@ -5,6 +5,7 @@ import com.example.demo.response.ApiResponse;
 import com.example.demo.response.BulkImportResult;
 import com.example.demo.response.PasswordResetResult;
 import com.example.demo.response.ResidentCreateRequest;
+import com.example.demo.response.ResidentDirectoryEntry;
 import com.example.demo.service.ResidentService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -70,6 +71,17 @@ public class ResidentController {
                 "Password reset successfully",
                 result
         );
+    }
+
+    // Safe resident list for the gate selector; never exposes contact details.
+    @GetMapping("/directory")
+    public ApiResponse<List<ResidentDirectoryEntry>> getResidentDirectory() {
+        List<ResidentDirectoryEntry> entries = residentService.getAllResidents()
+                .stream()
+                .map(resident -> new ResidentDirectoryEntry(
+                        resident.getId(), resident.getFullName(), resident.getHouseNumber()))
+                .toList();
+        return new ApiResponse<>(true, "Resident directory retrieved successfully", entries);
     }
 
     // GET ALL RESIDENTS

@@ -91,6 +91,10 @@ public class SecurityConfig {
 
                         // Authentication
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/push/public-key").permitAll()
+                        .requestMatchers(HttpMethod.POST,
+                                "/visit/public-approval/preview",
+                                "/visit/public-approval/decision").permitAll()
 
                         // Resident management
                         .requestMatchers(HttpMethod.POST, "/resident")
@@ -109,12 +113,18 @@ public class SecurityConfig {
                         .hasRole("ADMIN")
 
                         .requestMatchers(HttpMethod.GET, "/resident")
+                        .hasRole("ADMIN")
+
+                        .requestMatchers(HttpMethod.GET, "/resident/directory")
                         .hasAnyRole("ADMIN", "SECURITY")
+
+                        .requestMatchers(HttpMethod.GET, "/resident/search")
+                        .hasRole("ADMIN")
 
                         .requestMatchers(HttpMethod.GET, "/resident/me")
                         .hasRole("RESIDENT")
                         .requestMatchers(HttpMethod.GET, "/resident/{id}")
-                        .hasAnyRole("ADMIN", "SECURITY")
+                        .hasRole("ADMIN")
 
                         .requestMatchers(HttpMethod.PUT, "/resident/update/{id}")
                         .hasRole("ADMIN")
@@ -196,6 +206,11 @@ public class SecurityConfig {
                                 HttpMethod.POST,
                                 "/visit/check-Out/{accessCode}"
                         )
+                        .hasAnyRole("ADMIN", "SECURITY")
+
+                        .requestMatchers(HttpMethod.POST,
+                                "/visit/{id}/resident-call",
+                                "/visit/{id}/resident-call-outcome")
                         .hasAnyRole("ADMIN", "SECURITY")
 
                         // Security management

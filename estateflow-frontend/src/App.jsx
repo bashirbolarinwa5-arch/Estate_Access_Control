@@ -47,6 +47,7 @@ import ResidentVisitsPage from "./pages/ResidentVisitsPage";
 import SuperAdminAdminsPage from "./pages/SuperAdminAdminsPage.jsx";
 import SuperAdminEstatesPage from "./pages/SuperAdminEstatesPage.jsx";
 import SuperAdminActivityPage from "./pages/SuperAdminActivityPage.jsx";
+import GuestApprovalPage from "./pages/GuestApprovalPage.jsx";
 
 
 /* =========================================================
@@ -1094,6 +1095,8 @@ function App() {
     return (
 
         <Routes>
+
+            <Route path="/guest-approval" element={<GuestApprovalPage />} />
 
 
             {/* =================================================

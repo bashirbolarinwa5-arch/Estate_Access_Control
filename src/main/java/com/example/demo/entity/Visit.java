@@ -1,6 +1,7 @@
 package com.example.demo.entity;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 
 import java.time.LocalDate;
@@ -18,6 +19,7 @@ public class Visit {
     private Visitor visitor;
 
     @ManyToOne
+    @JsonIgnoreProperties({"phoneNumber", "email", "user", "visitors"})
     private Resident resident;
 
     /*

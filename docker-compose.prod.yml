@@ -55,6 +55,14 @@ services:
       # The ORIGIN of the Vercel-hosted frontend (patterns OK,
       # e.g. https://your-app.vercel.app — comma-separated).
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+      APP_FRONTEND_URL: ${APP_FRONTEND_URL:-https://estate-access-control-phi.vercel.app}
+      APP_PUSH_PUBLIC_KEY: ${PUSH_PUBLIC_KEY:-}
+      APP_PUSH_PRIVATE_KEY: ${PUSH_PRIVATE_KEY:-}
+      APP_PUSH_SUBJECT: ${PUSH_SUBJECT:-mailto:support@estateflow.ng}
+      APP_TERMII_ENABLED: ${TERMII_ENABLED:-false}
+      APP_TERMII_BASE_URL: ${TERMII_BASE_URL:-}
+      APP_TERMII_API_KEY: ${TERMII_API_KEY:-}
+      APP_TERMII_SENDER_ID: ${TERMII_SENDER_ID:-}
     ports:
       - "8081:8081"
     depends_on:

@@ -131,6 +131,19 @@ public class VisitController {
         );
     }
 
+    @PostMapping("/{id}/resident-call")
+    public ApiResponse<String> beginResidentCall(@PathVariable Long id) {
+        return new ApiResponse<>(true, "Call attempt recorded", service.beginResidentCall(id));
+    }
+
+    @PostMapping("/{id}/resident-call-outcome")
+    public ApiResponse<Void> recordResidentCallOutcome(
+            @PathVariable Long id,
+            @RequestParam String outcome) {
+        service.recordResidentCallOutcome(id, outcome);
+        return new ApiResponse<>(true, "Call outcome recorded", null);
+    }
+
     // ==============================
     // GET APPROVED VISITS
     // ==============================

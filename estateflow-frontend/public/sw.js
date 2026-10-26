@@ -12,7 +12,7 @@
  *     talks to the API live and shows its own inline error state.
  */
 
-const CACHE_NAME = "estateflow-shell-v1";
+const CACHE_NAME = "estateflow-shell-v2";
 
 const SHELL_FILES = [
     "/",
@@ -48,6 +48,37 @@ self.addEventListener("activate", (event) => {
             )
             .then(() => self.clients.claim())
     );
+});
+
+self.addEventListener("push", (event) => {
+    const data = event.data ? (() => {
+        try {
+            return event.data.json();
+        } catch {
+            return { body: event.data.text() || "A visitor is waiting at the estate gate." };
+        }
+    })() : {};
+    event.waitUntil(self.registration.showNotification(data.title || "EstateFlow", {
+        body: data.body || "A visitor is waiting at the estate gate.",
+        icon: "/icons/icon-192.png",
+        badge: "/icons/icon-192.png",
+        data: { url: data.url || "/resident/visits" },
+        tag: "estateflow-visitor-request",
+    }));
+});
+
+self.addEventListener("notificationclick", (event) => {
+    event.notification.close();
+    const targetUrl = new URL(event.notification.data?.url || "/resident/visits", self.location.origin).href;
+    event.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clients) => {
+        for (const client of clients) {
+            if ("focus" in client) {
+                await client.navigate(targetUrl);
+                return client.focus();
+            }
+        }
+        return self.clients.openWindow(targetUrl);
+    }));
 });
 
 self.addEventListener("fetch", (event) => {

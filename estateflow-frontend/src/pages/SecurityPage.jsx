@@ -80,6 +80,8 @@ function SecurityPage() {
     const [selectedResidentId, setSelectedResidentId] = useState("");
     const [visitPurpose, setVisitPurpose] = useState("");
     const [creatingWalkIn, setCreatingWalkIn] = useState(false);
+    const [activeResidentCall, setActiveResidentCall] = useState(null);
+    const [savingCallOutcome, setSavingCallOutcome] = useState(false);
 
     // Access control
     const [accessCode, setAccessCode] = useState("");
@@ -101,7 +103,7 @@ function SecurityPage() {
 
             const [residentResponse, insideResponse, pendingResponse] =
                 await Promise.all([
-                    api.get("/resident"),
+                    api.get("/resident/directory"),
                     api.get("/api/reports/currently-inside"),
                     api.get("/visit/pending"),
                 ]);
@@ -128,6 +130,34 @@ function SecurityPage() {
         } finally {
             setLoadingResidents(false);
             setLoadingInside(false);
+        }
+    }
+
+    async function callResident(visit) {
+        try {
+            const response = await api.post(`/visit/${visit.id}/resident-call`);
+            const phone = response.data?.data;
+            setActiveResidentCall({ visitId: visit.id, resident: visit.resident?.fullName, phone });
+            if (phone) window.location.assign(`tel:${phone}`);
+        } catch (err) {
+            const message = err.response?.data?.message || "Could not start the resident call.";
+            setError(message);
+            showError(message);
+        }
+    }
+
+    async function recordCallOutcome(outcome) {
+        if (!activeResidentCall) return;
+        try {
+            setSavingCallOutcome(true);
+            await api.post(`/visit/${activeResidentCall.visitId}/resident-call-outcome`, null, { params: { outcome } });
+            showSuccess("Call outcome recorded.");
+            setActiveResidentCall(null);
+        } catch (err) {
+            const message = err.response?.data?.message || "Could not record the call outcome.";
+            showError(message);
+        } finally {
+            setSavingCallOutcome(false);
         }
     }
 
@@ -188,7 +218,7 @@ function SecurityPage() {
                 try {
                     const [residentResponse, insideResponse, pendingResponse] =
                         await Promise.all([
-                            api.get("/resident"),
+                            api.get("/resident/directory"),
                             api.get("/api/reports/currently-inside"),
                             api.get("/visit/pending"),
                         ]);
@@ -834,6 +864,7 @@ if (isSecurity) {
                                 <th>Purpose</th>
                                 <th>Access Code</th>
                                 <th>Status</th>
+                                <th>Action</th>
                             </tr>
                             </thead>
 
@@ -874,6 +905,11 @@ if (isSecurity) {
                                             <span className="security-role-badge">
                                                 Awaiting resident
                                             </span>
+                                        </td>
+                                        <td>
+                                            <button type="button" className="security-table-button edit" onClick={() => callResident(visit)}>
+                                                <Phone size={14} /> Call resident
+                                            </button>
                                         </td>
                                     </tr>
                                 );
@@ -1154,6 +1190,24 @@ if (isSecurity) {
                                 </button>
                             </div>
                         </form>
+                    </section>
+                </div>
+            )}
+            {activeResidentCall && (
+                <div className="security-modal-overlay" role="presentation">
+                    <section className="security-modal" role="dialog" aria-modal="true" aria-labelledby="call-outcome-title">
+                        <div className="security-modal-header">
+                            <div>
+                                <h2 id="call-outcome-title">Log call outcome</h2>
+                                <p>Call to {activeResidentCall.resident || "resident"} started{activeResidentCall.phone ? ` (${activeResidentCall.phone})` : ""}.</p>
+                            </div>
+                            <button type="button" aria-label="Close" onClick={() => setActiveResidentCall(null)}><X size={18} /></button>
+                        </div>
+                        <div className="security-modal-actions">
+                            <button type="button" className="security-secondary-button" disabled={savingCallOutcome} onClick={() => recordCallOutcome("ANSWERED")}>Answered</button>
+                            <button type="button" className="security-secondary-button" disabled={savingCallOutcome} onClick={() => recordCallOutcome("NO_ANSWER")}>No answer</button>
+                            <button type="button" className="security-secondary-button" disabled={savingCallOutcome} onClick={() => recordCallOutcome("UNABLE_TO_CALL")}>Unable to call</button>
+                        </div>
                     </section>
                 </div>
             )}

@@ -3,6 +3,7 @@ package com.example.demo.service;
 import com.example.demo.entity.*;
 import com.example.demo.repository.ResidentRepository;
 import com.example.demo.repository.VisitRepository;
+import com.example.demo.repository.ResidentCallAttemptRepository;
 import com.example.demo.repository.VisitorRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -23,6 +24,8 @@ public class VisitService {
     private final UserRepository userRepository;
     private final ActivityLogService activityLogService;
     private final CurrentUserService currentUserService;
+    private final VisitNotificationService visitNotificationService;
+    private final ResidentCallAttemptRepository residentCallAttemptRepository;
 
     public VisitService(
             VisitRepository visitRepository,
@@ -30,7 +33,9 @@ public class VisitService {
             ResidentRepository residentRepository,
             UserRepository userRepository,
             ActivityLogService activityLogService,
-            CurrentUserService currentUserService) {
+            CurrentUserService currentUserService,
+            VisitNotificationService visitNotificationService,
+            ResidentCallAttemptRepository residentCallAttemptRepository) {
 
         this.visitRepository = visitRepository;
         this.visitorRepository = visitorRepository;
@@ -38,6 +43,8 @@ public class VisitService {
         this.userRepository = userRepository;
         this.activityLogService = activityLogService;
         this.currentUserService = currentUserService;
+        this.visitNotificationService = visitNotificationService;
+        this.residentCallAttemptRepository = residentCallAttemptRepository;
     }
 
     // ==============================
@@ -124,6 +131,7 @@ public class VisitService {
     // CREATE VISIT
     // ==============================
 
+    @org.springframework.transaction.annotation.Transactional
     public Visit createVisit(
             Long residentId,
             Visitor visitor,
@@ -189,6 +197,9 @@ public class VisitService {
 
         Visit savedVisit =
                 visitRepository.save(visit);
+
+        // A notification failure must not undo an otherwise valid gate registration.
+        visitNotificationService.queueWalkIn(savedVisit);
 
         activityLogService.log(
                 "SYSTEM",
@@ -302,6 +313,50 @@ public class VisitService {
                 VisitorStatus.PENDING,
                 estate
         );
+    }
+
+    public String beginResidentCall(Long id) {
+        Visit visit = visitRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Visit not found"));
+        currentUserService.verifySameEstate(currentUserService.getRequiredEstate(), visit.getEstate());
+        if (visit.getStatus() != VisitorStatus.PENDING) {
+            throw new RuntimeException("Resident calls are available only for pending visits");
+        }
+        String phone = visit.getResident() == null ? null : visit.getResident().getPhoneNumber();
+        if (phone == null || phone.isBlank()) throw new RuntimeException("Resident phone number is unavailable");
+        User caller = currentUserService.getCurrentUser();
+        if (caller == null) throw new RuntimeException("User is not authenticated");
+        ResidentCallAttempt attempt = new ResidentCallAttempt();
+        attempt.setVisit(visit);
+        attempt.setInitiatedBy(caller);
+        residentCallAttemptRepository.save(attempt);
+        String actor = caller.getRole().name().replace("ROLE_", "");
+        activityLogService.log(actor, "RESIDENT_CALL_ATTEMPT",
+                "Call attempt started for pending visit " + visit.getId());
+        return phone;
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void recordResidentCallOutcome(Long id, String outcome) {
+        Visit visit = visitRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Visit not found"));
+        currentUserService.verifySameEstate(currentUserService.getRequiredEstate(), visit.getEstate());
+        User caller = currentUserService.getCurrentUser();
+        ResidentCallAttempt attempt = residentCallAttemptRepository
+                .findTopByVisitAndInitiatedByAndOutcomeIsNullOrderByStartedAtDesc(visit, caller)
+                .orElseThrow(() -> new RuntimeException("No unfinished call attempt exists for this visit"));
+        ResidentCallAttempt.Outcome callOutcome;
+        try {
+            callOutcome = ResidentCallAttempt.Outcome.valueOf(outcome);
+        } catch (Exception invalidOutcome) {
+            throw new RuntimeException("Choose a valid call outcome");
+        }
+        attempt.setOutcome(callOutcome);
+        attempt.setCompletedAt(LocalDateTime.now());
+        residentCallAttemptRepository.save(attempt);
+        String actor = caller.getRole().name().replace("ROLE_", "");
+        activityLogService.log(actor, "RESIDENT_CALL_OUTCOME",
+                "Call outcome for pending visit " + visit.getId() + ": " + outcome);
     }
 
     // ==============================
