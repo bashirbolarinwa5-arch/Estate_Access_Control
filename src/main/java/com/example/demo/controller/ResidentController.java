@@ -41,6 +41,12 @@ public class ResidentController {
     public ApiResponse<BulkImportResult> createResidents(
             @RequestBody List<ResidentCreateRequest> requests) {
 
+        if (requests.size() > 100) {
+            throw new RuntimeException(
+                    "Bulk imports are limited to 100 accounts per request"
+            );
+        }
+
         BulkImportResult result =
                 residentService.createResidents(requests);
 

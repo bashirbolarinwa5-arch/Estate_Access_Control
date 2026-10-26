@@ -573,8 +573,10 @@ function BulkImportModal({
                             houseNumber: source.item.houseNumber || "",
                             phoneNumber: source.item.phoneNumber || "",
                             username: result.username || source.item.username,
-                            temporaryPassword:
-                                result.temporaryPassword || "",
+                            password:
+                                result.temporaryPassword ||
+                                source.item.password || "",
+                            mustChangePassword: Boolean(result.temporaryPassword),
                         });
                     } else {
                         collectedFailures.push({
@@ -668,7 +670,7 @@ function BulkImportModal({
                 "House",
                 "Phone",
                 "Username",
-                "Temporary password",
+                "Password",
                 "Must change password on first login",
             ],
         ];
@@ -679,8 +681,8 @@ function BulkImportModal({
                 account.houseNumber,
                 account.phoneNumber,
                 account.username,
-                account.temporaryPassword,
-                account.temporaryPassword ? "YES" : "NO",
+                account.password,
+                account.mustChangePassword ? "YES" : "NO",
             ]);
         });
 
@@ -710,7 +712,7 @@ function BulkImportModal({
         const text = credentials
             .map(
                 (account) =>
-                    `${account.name} | ${account.username} | ${account.temporaryPassword}`
+                    `${account.name} | ${account.username} | ${account.password}`
             )
             .join("\n");
 
@@ -1069,9 +1071,7 @@ function BulkImportModal({
                                 </div>
                             </div>
 
-                            {credentials.some(
-                                (account) => account.temporaryPassword
-                            ) && (
+                            {credentials.length > 0 && (
                                 <div className="import-result-block">
                                     <div className="import-result-head">
                                         <strong>Credentials</strong>
@@ -1098,10 +1098,10 @@ function BulkImportModal({
                                     </div>
 
                                     <p className="import-hint">
-                                        These temporary passwords are shown
-                                        only once. Download the file and hand
-                                        each person their username and
-                                        password.
+                                        Download and securely distribute these
+                                        credentials. Generated temporary
+                                        passwords must be changed at first
+                                        login.
                                     </p>
 
                                     <div className="import-table-wrap small">
@@ -1110,16 +1110,12 @@ function BulkImportModal({
                                                 <tr>
                                                     <th>Name</th>
                                                     <th>Username</th>
-                                                    <th>Temp password</th>
+                                                    <th>Password</th>
                                                 </tr>
                                             </thead>
 
                                             <tbody>
                                                 {credentials
-                                                    .filter(
-                                                        (account) =>
-                                                            account.temporaryPassword
-                                                    )
                                                     .slice(0, 50)
                                                     .map((account, index) => (
                                                         <tr
@@ -1137,7 +1133,7 @@ function BulkImportModal({
                                                             <td>
                                                                 <code>
                                                                     {
-                                                                        account.temporaryPassword
+                                                                        account.password
                                                                     }
                                                                 </code>
                                                             </td>

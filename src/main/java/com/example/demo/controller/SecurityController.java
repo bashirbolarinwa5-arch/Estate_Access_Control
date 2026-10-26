@@ -56,6 +56,12 @@ public class SecurityController {
     public ApiResponse<BulkImportResult> createSecurities(
             @RequestBody List<SecurityRequest> requests) {
 
+        if (requests.size() > 100) {
+            throw new RuntimeException(
+                    "Bulk imports are limited to 100 accounts per request"
+            );
+        }
+
         BulkImportResult result =
                 security.createSecurities(requests);
 

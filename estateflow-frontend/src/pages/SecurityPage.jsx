@@ -644,14 +644,16 @@ if (isSecurity) {
                         Create Walk-In Visit
                     </button>
 
-                    <button
-                        type="button"
-                        className="security-primary-button"
-                        onClick={() => setShowBulkSecurityModal(true)}
-                    >
-                        <Plus size={17} />
-                        Bulk Create Security
-                    </button>
+                    {isAdmin && (
+                        <button
+                            type="button"
+                            className="security-primary-button"
+                            onClick={() => setShowBulkSecurityModal(true)}
+                        >
+                            <Plus size={17} />
+                            Bulk Create Security
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -997,16 +999,18 @@ if (isSecurity) {
                 )}
             </section>
 
-            <BulkImportModal
-                key={showBulkSecurityModal ? "bulk-open" : "bulk-closed"}
-                open={showBulkSecurityModal}
-                onClose={() => setShowBulkSecurityModal(false)}
-                onCreated={() => loadSecurityPersonnel()}
-                kind="security"
-                title="Import Security Personnel"
-                subtitle="Upload your CSV or Excel sheet. Columns are mapped next, temporary passwords are generated, and each account must be changed at first login."
-                endpoint="/security/bulk"
-            />
+            {isAdmin && (
+                <BulkImportModal
+                    key={showBulkSecurityModal ? "bulk-open" : "bulk-closed"}
+                    open={showBulkSecurityModal}
+                    onClose={() => setShowBulkSecurityModal(false)}
+                    onCreated={() => loadSecurityPersonnel()}
+                    kind="security"
+                    title="Import Security Personnel"
+                    subtitle="Upload your CSV or Excel sheet. Columns are mapped next, temporary passwords are generated, and each account must be changed at first login."
+                    endpoint="/security/bulk"
+                />
+            )}
 
             <TempPasswordModal
                 open={Boolean(resetSecurityResult)}

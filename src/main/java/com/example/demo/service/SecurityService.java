@@ -12,6 +12,8 @@ import com.example.demo.response.PasswordResetResult;
 import com.example.demo.response.SecurityRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
 
@@ -24,6 +26,7 @@ public class SecurityService {
     private final VisitService visitService;
     private final CurrentUserService currentUserService;
     private final CredentialService credentialService;
+    private final TransactionTemplate transactionTemplate;
 
     public SecurityService(
             SecurityRepository securityRepository,
@@ -31,7 +34,8 @@ public class SecurityService {
             PasswordEncoder passwordEncoder,
             VisitService visitService,
             CurrentUserService currentUserService,
-            CredentialService credentialService) {
+            CredentialService credentialService,
+            PlatformTransactionManager transactionManager) {
 
         this.securityRepository = securityRepository;
         this.userRepository = userRepository;
@@ -39,6 +43,7 @@ public class SecurityService {
         this.visitService = visitService;
         this.currentUserService = currentUserService;
         this.credentialService = credentialService;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     // CREATE SECURITY
@@ -177,20 +182,23 @@ public class SecurityService {
                         request.getEmail()
                 );
 
-                Security created = createSecurity(
-                        securityPerson,
-                        username,
-                        request.getPassword()
-                );
+                boolean mustChangePassword = generatedPassword != null;
 
-                if (generatedPassword != null) {
+                Security created = transactionTemplate.execute(status -> {
+                    Security importedSecurity = createSecurity(
+                            securityPerson,
+                            request.getUsername(),
+                            request.getPassword()
+                    );
 
-                    User user = created.getUser();
+                    if (mustChangePassword) {
+                        User user = importedSecurity.getUser();
+                        user.setMustChangePassword(true);
+                        userRepository.save(user);
+                    }
 
-                    user.setMustChangePassword(true);
-
-                    userRepository.save(user);
-                }
+                    return importedSecurity;
+                });
 
                 row.setSuccess(true);
                 row.setUsername(username);

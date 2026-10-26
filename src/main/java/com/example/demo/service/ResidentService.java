@@ -11,6 +11,8 @@ import com.example.demo.response.PasswordResetResult;
 import com.example.demo.response.ResidentCreateRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -30,6 +32,7 @@ public class ResidentService {
     private final ActivityLogService activityLogService;
     private final CurrentUserService currentUserService;
     private final CredentialService credentialService;
+    private final TransactionTemplate transactionTemplate;
 
     public ResidentService(
             ResidentRepository repository,
@@ -37,7 +40,8 @@ public class ResidentService {
             PasswordEncoder passwordEncoder,
             ActivityLogService activityLogService,
             CurrentUserService currentUserService,
-            CredentialService credentialService) {
+            CredentialService credentialService,
+            PlatformTransactionManager transactionManager) {
 
         this.repository = repository;
         this.userRepository = userRepository;
@@ -45,6 +49,7 @@ public class ResidentService {
         this.activityLogService = activityLogService;
         this.currentUserService = currentUserService;
         this.credentialService = credentialService;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     // CREATE RESIDENT + USER ACCOUNT
@@ -193,16 +198,19 @@ public class ResidentService {
                     request.setPassword(generatedPassword);
                 }
 
-                Resident created = createResident(request);
+                boolean mustChangePassword = generatedPassword != null;
 
-                if (generatedPassword != null) {
+                Resident created = transactionTemplate.execute(status -> {
+                    Resident importedResident = createResident(request);
 
-                    User user = created.getUser();
+                    if (mustChangePassword) {
+                        User user = importedResident.getUser();
+                        user.setMustChangePassword(true);
+                        userRepository.save(user);
+                    }
 
-                    user.setMustChangePassword(true);
-
-                    userRepository.save(user);
-                }
+                    return importedResident;
+                });
 
                 row.setSuccess(true);
                 row.setUsername(username);
