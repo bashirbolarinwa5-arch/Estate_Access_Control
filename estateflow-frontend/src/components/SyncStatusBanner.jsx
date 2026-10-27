@@ -80,12 +80,14 @@ export default function SyncStatusBanner() {
             aria-live="polite"
             style={{
                 margin: "12px 0",
-                padding: "10px 14px",
+                padding: "11px 14px",
                 borderRadius: 10,
-                background: needsReview ? "#fff7ed" : "#eff6ff",
-                color: needsReview ? "#9a3412" : "#1e40af",
-                fontSize: 14,
-                fontWeight: 600,
+                background: needsReview ? "#fef3e2" : "#eef4ff",
+                border: "1px solid " + (needsReview ? "#f5d9bd" : "#dce8fb"),
+                color: needsReview ? "#8a4b12" : "#1d3f8f",
+                fontSize: 13,
+                fontWeight: 700,
+                lineHeight: 1.5,
             }}
         >
             {message}

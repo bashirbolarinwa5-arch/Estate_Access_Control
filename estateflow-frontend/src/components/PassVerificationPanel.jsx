@@ -165,7 +165,7 @@ export default function PassVerificationPanel() {
                     rows={5}
                     autoComplete="off"
                     spellCheck="false"
-                    style={{ width: "100%", resize: "vertical", fontFamily: "monospace" }}
+                    style={{ width: "100%", resize: "vertical", fontFamily: "monospace", border: "1px solid #dce3ed", borderRadius: 10, padding: "12px 13px", outline: "none", boxSizing: "border-box" }}
                 />
                 <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                     <button type="submit" className="security-action-button checkin" disabled={!passText.trim()}>

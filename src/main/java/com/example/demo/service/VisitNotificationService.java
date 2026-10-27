@@ -106,6 +106,7 @@ public class VisitNotificationService {
         subscriptions.save(subscription);
     }
 
+    @Transactional
     public void removeSubscription(User user, String endpoint) {
         if (endpoint != null) subscriptions.deleteByUserAndEndpoint(user, endpoint);
     }
