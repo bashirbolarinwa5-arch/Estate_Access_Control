@@ -16,6 +16,7 @@ import {
 
 import api from "../services/api";
 import { useAuth } from "../context/useAuth";
+import { currentOwnerKey, saveLocalMutation } from "../db/offlineStore";
 
 import { useToast } from "../components/useToast";
 
@@ -293,9 +294,19 @@ function VisitsPage() {
             setError("");
             setSuccess("");
 
-            await api.put(
-                `/visit/approve/${encodeURIComponent(visitId)}`
+            const visit = visits.find(
+                (item) => String(item.id) === String(visitId)
             );
+
+            await saveLocalMutation({
+                ownerKey: currentOwnerKey(),
+                actorPublicId: user?.publicId ?? null,
+                estatePublicId: user?.estatePublicId ?? null,
+                entityType: "VISIT",
+                operation: "APPROVE",
+                entityPublicId: visit?.publicId ?? null,
+                payload: {},
+            });
 
             setSuccess(
                 "Visitor approved successfully."
@@ -333,9 +344,19 @@ function VisitsPage() {
             setError("");
             setSuccess("");
 
-            await api.put(
-                `/visit/reject/${encodeURIComponent(visitId)}`
+            const visit = visits.find(
+                (item) => String(item.id) === String(visitId)
             );
+
+            await saveLocalMutation({
+                ownerKey: currentOwnerKey(),
+                actorPublicId: user?.publicId ?? null,
+                estatePublicId: user?.estatePublicId ?? null,
+                entityType: "VISIT",
+                operation: "REJECT",
+                entityPublicId: visit?.publicId ?? null,
+                payload: {},
+            });
 
             setSuccess(
                 "Visitor rejected successfully."
@@ -365,9 +386,19 @@ function VisitsPage() {
             setError("");
             setSuccess("");
 
-            await api.post(
-                `/visit/check-In/${encodeURIComponent(accessCode)}`
+            const visit = visits.find(
+                (item) => String(item.id) === String(visitId)
             );
+
+            await saveLocalMutation({
+                ownerKey: currentOwnerKey(),
+                actorPublicId: user?.publicId ?? null,
+                estatePublicId: user?.estatePublicId ?? null,
+                entityType: "VISIT",
+                operation: "CHECK_IN",
+                entityPublicId: visit?.publicId ?? null,
+                payload: {},
+            });
 
             setSuccess(
                 "Visitor checked in successfully."
@@ -397,9 +428,19 @@ function VisitsPage() {
             setError("");
             setSuccess("");
 
-            await api.post(
-                `/visit/check-Out/${encodeURIComponent(accessCode)}`
+            const visit = visits.find(
+                (item) => String(item.id) === String(visitId)
             );
+
+            await saveLocalMutation({
+                ownerKey: currentOwnerKey(),
+                actorPublicId: user?.publicId ?? null,
+                estatePublicId: user?.estatePublicId ?? null,
+                entityType: "VISIT",
+                operation: "CHECK_OUT",
+                entityPublicId: visit?.publicId ?? null,
+                payload: {},
+            });
 
             setSuccess(
                 "Visitor checked out successfully."

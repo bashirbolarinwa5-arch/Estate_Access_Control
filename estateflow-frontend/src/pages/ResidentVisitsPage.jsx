@@ -475,7 +475,18 @@ const ResidentVisitsPage = () => {
             setError("");
             setSuccess("");
 
-            await API.put(`/visit/me/approve/${id}`);
+            const storedAuth = JSON.parse(localStorage.getItem("estateflow_auth") || "null");
+            const visit = visits.find((item) => String(item.id) === String(id));
+
+            await saveLocalMutation({
+                ownerKey: currentOwnerKey(),
+                actorPublicId: storedAuth?.publicId ?? null,
+                estatePublicId: storedAuth?.estatePublicId ?? null,
+                entityType: "VISIT",
+                operation: "APPROVE",
+                entityPublicId: visit?.publicId ?? null,
+                payload: {},
+            });
 
             setSuccess("Visit approved successfully.");
             showSuccess("Visit approved successfully.");
@@ -501,7 +512,18 @@ const ResidentVisitsPage = () => {
             setError("");
             setSuccess("");
 
-            await API.put(`/visit/me/reject/${id}`);
+            const storedAuth = JSON.parse(localStorage.getItem("estateflow_auth") || "null");
+            const visit = visits.find((item) => String(item.id) === String(id));
+
+            await saveLocalMutation({
+                ownerKey: currentOwnerKey(),
+                actorPublicId: storedAuth?.publicId ?? null,
+                estatePublicId: storedAuth?.estatePublicId ?? null,
+                entityType: "VISIT",
+                operation: "REJECT",
+                entityPublicId: visit?.publicId ?? null,
+                payload: {},
+            });
 
             setSuccess("Visit rejected successfully.");
             showSuccess("Visit rejected successfully.");
