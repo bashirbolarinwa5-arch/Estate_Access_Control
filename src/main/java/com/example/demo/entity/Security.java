@@ -2,12 +2,17 @@ package com.example.demo.entity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
+
+import java.util.UUID;
 @Entity
 @Data
 public class Security {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "public_id", updatable = false)
+    private UUID publicId = UUID.randomUUID();
 
     private String name;
     private String phoneNumber;

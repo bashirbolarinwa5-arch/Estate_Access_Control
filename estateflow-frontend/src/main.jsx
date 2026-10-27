@@ -7,6 +7,7 @@ import "./mobile.css";
 import App from "./App.jsx";
 import { AuthProvider } from "./context/AuthContext";
 import { ToastProvider } from "./components/Toast";
+import { startSyncEngine } from "./db/syncEngine";
 
 createRoot(document.getElementById("root")).render(
     <StrictMode>
@@ -34,3 +35,5 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
         });
     });
 }
+
+startSyncEngine();

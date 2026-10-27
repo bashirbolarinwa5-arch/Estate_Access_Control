@@ -137,6 +137,18 @@ export default function ResidentsPage() {
 
     const [form, setForm] = useState(emptyForm);
 
+    // Keep the page behind the modal from scrolling while it is open.
+    useEffect(() => {
+        if (!showModal) return undefined;
+
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+
+        return () => {
+            document.body.style.overflow = previousOverflow;
+        };
+    }, [showModal]);
+
     async function loadResidents() {
         setLoading(true);
         setError("");
@@ -779,7 +791,7 @@ export default function ResidentsPage() {
     overflow: hidden;
     /* dvh keeps the modal inside the dynamic mobile viewport
        (address bar safe) while 100vh does not. */
-    max-height: calc(100dvh - 40px);
+    max-height: calc(100dvh - 2rem);
 }
 
 .resident-modal form {
@@ -997,6 +1009,16 @@ export default function ResidentsPage() {
 
 .resident-account-section {
         grid-column: auto;
+    }
+
+    .resident-modal-footer {
+        flex-direction: column;
+        padding: 16px 20px 20px;
+    }
+
+    .resident-modal-footer .resident-cancel,
+    .resident-modal-footer .resident-save {
+        width: 100%;
     }
 
 .residents-header-actions {

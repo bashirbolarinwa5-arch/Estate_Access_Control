@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface ResidentRepository extends JpaRepository<Resident, Long> {
 
@@ -22,6 +23,8 @@ public interface ResidentRepository extends JpaRepository<Resident, Long> {
 
     // Resident ↔ User relationship
     Optional<Resident> findByUser(User user);
+
+    Optional<Resident> findByPublicId(UUID publicId);
 
 
 

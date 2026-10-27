@@ -7,8 +7,12 @@ import com.example.demo.entity.Visitor;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 public interface VisitorRepository extends JpaRepository<Visitor, Long> {
+
+     Optional<Visitor> findByPublicId(UUID publicId);
 
      List<Visitor> findByResidentId(Long residentId);
 

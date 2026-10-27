@@ -13,6 +13,7 @@
  */
 
 const CACHE_NAME = "estateflow-shell-v2";
+const OUTBOX_SYNC_TAG = "estateflow-outbox";
 
 const SHELL_FILES = [
     "/",
@@ -79,6 +80,18 @@ self.addEventListener("notificationclick", (event) => {
         }
         return self.clients.openWindow(targetUrl);
     }));
+});
+
+self.addEventListener("sync", (event) => {
+    if (event.tag !== OUTBOX_SYNC_TAG) return;
+
+    event.waitUntil(
+        self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+            for (const client of clients) {
+                client.postMessage({ type: "ESTATEFLOW_SYNC_REQUEST" });
+            }
+        }),
+    );
 });
 
 self.addEventListener("fetch", (event) => {

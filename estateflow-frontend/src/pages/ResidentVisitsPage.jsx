@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import {
     CalendarDays,
     CheckCircle2,
@@ -16,10 +17,36 @@ import {
 } from "lucide-react";
 
 import API from "../services/api";
+import { db, newPublicId } from "../db/estateflowDb";
+import { currentOwnerKey, getLocalRecords, saveLocalMutation } from "../db/offlineStore";
+import { createResidentPassSigningKey, signPassOffline } from "../db/passCrypto";
 
 import { useToast } from "../components/useToast";
 
 import "./ResidentVisitsPage.css";
+
+async function mergeOfflineVisits(serverVisits) {
+    const ownerKey = currentOwnerKey();
+    if (!ownerKey) return serverVisits;
+    try {
+        const localVisits = await getLocalRecords("visits", ownerKey);
+        const known = new Set(serverVisits.map((visit) => visit.publicId).filter(Boolean));
+        const pending = localVisits
+            .filter((visit) => visit.publicId && !known.has(visit.publicId))
+            .map((visit) => ({
+                ...visit,
+                id: visit.publicId,
+                visitor: visit.visitor || {
+                    fullName: visit.visitorName || "Visitor",
+                    phoneNumber: visit.visitorPhone || "",
+                },
+                status: visit.status || "OFFLINE_PENDING",
+            }));
+        return [...serverVisits, ...pending];
+    } catch {
+        return serverVisits;
+    }
+}
 
 const ResidentVisitsPage = () => {
     const { showSuccess, showError } = useToast();
@@ -47,6 +74,52 @@ const ResidentVisitsPage = () => {
     const [pushEnabled, setPushEnabled] = useState(false);
     const [pushBusy, setPushBusy] = useState(false);
     const [pushHelp, setPushHelp] = useState("");
+    const [passSigningContext, setPassSigningContext] = useState(null);
+    const [offlineSignedPass, setOfflineSignedPass] = useState("");
+
+    useEffect(() => {
+        let active = true;
+        async function preparePassSigningKey() {
+            try {
+                const profileResponse = await API.get("/resident/me");
+                const resident = profileResponse.data?.data;
+                const residentPublicId = resident?.publicId;
+                const estatePublicId = resident?.user?.estate?.publicId;
+                if (!residentPublicId || !estatePublicId) return;
+
+                let key = await db.signingKeys
+                    .where("publicId").equals(residentPublicId)
+                    .filter((candidate) => candidate.estatePublicId === estatePublicId
+                        && !candidate.revokedAt
+                        && (!candidate.expiresAt || candidate.expiresAt > Date.now()))
+                    .first();
+                if (!key && !navigator.onLine) return;
+                if (!key) {
+                    const generated = await createResidentPassSigningKey({ residentPublicId, estatePublicId });
+                    key = await db.signingKeys.get(generated.keyId);
+                }
+                if (navigator.onLine) {
+                    const enrollment = await API.post("/api/pass-keys/me", {
+                        keyId: key.keyId,
+                        algorithm: key.algorithm,
+                        publicJwk: key.publicJwk,
+                    });
+                    const expiresAt = Date.parse(enrollment.data?.data?.expiresAt);
+                    if (Number.isFinite(expiresAt)) {
+                        key.expiresAt = expiresAt;
+                        await db.signingKeys.put(key);
+                    }
+                }
+                if (active) setPassSigningContext({ residentPublicId, estatePublicId, keyId: key.keyId });
+            } catch (error) {
+                if (active && navigator.onLine) {
+                    console.warn("Offline pass signing key is not enrolled yet:", error.message);
+                }
+            }
+        }
+        void preparePassSigningKey();
+        return () => { active = false; };
+    }, []);
 
     useEffect(() => {
         if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
@@ -126,7 +199,7 @@ const ResidentVisitsPage = () => {
 
             const result = response.data?.data;
 
-            setVisits(Array.isArray(result) ? result : []);
+            setVisits(await mergeOfflineVisits(Array.isArray(result) ? result : []));
         } catch (err) {
             console.error("Failed to load resident visits:", err);
 
@@ -170,8 +243,8 @@ const ResidentVisitsPage = () => {
 
                 const result = response.data?.data;
 
-                if (active) {
-                    setVisits(Array.isArray(result) ? result : []);
+                    if (active) {
+                        setVisits(await mergeOfflineVisits(Array.isArray(result) ? result : []));
                 }
             } catch (err) {
                 console.error("Failed to load your visits:", err);
@@ -267,6 +340,60 @@ const ResidentVisitsPage = () => {
         try {
             setCreatingVisit(true);
 
+            if (!navigator.onLine) {
+                if (!passSigningContext) throw new Error("Connect once to set up offline pass signing on this device.");
+                const visitor = visitors.find((item) => String(item.id) === String(createForm.visitorId));
+                if (!visitor?.publicId) throw new Error("This visitor is not cached with a public ID. Connect and refresh your visitor list first.");
+                const validFrom = new Date(`${createForm.visitDate}T00:00:00`);
+                const expiresAt = new Date(validFrom);
+                expiresAt.setDate(expiresAt.getDate() + 1);
+                const visitPublicId = newPublicId();
+                const pass = {
+                    publicId: visitPublicId,
+                    residentPublicId: passSigningContext.residentPublicId,
+                    visitorPublicId: visitor.publicId,
+                    estatePublicId: passSigningContext.estatePublicId,
+                    visitorName: visitor.fullName,
+                    visitorPhone: visitor.phoneNumber || "",
+                    purpose: createForm.purpose.trim(),
+                    visitDate: createForm.visitDate,
+                    validFrom: validFrom.toISOString(),
+                    expiresAt: expiresAt.toISOString(),
+                };
+                const signedPass = await signPassOffline({
+                    keyId: passSigningContext.keyId,
+                    residentPublicId: passSigningContext.residentPublicId,
+                    estatePublicId: passSigningContext.estatePublicId,
+                    pass,
+                });
+                const ownerKey = currentOwnerKey();
+                await saveLocalMutation({
+                    tableName: "visits",
+                    ownerKey,
+                    actorPublicId: passSigningContext.residentPublicId,
+                    estatePublicId: passSigningContext.estatePublicId,
+                    entityType: "VISIT",
+                    operation: "CREATE_PLANNED",
+                    record: { ...pass, signedPass, status: "OFFLINE_PENDING" },
+                    payload: {
+                        visitorPublicId: visitor.publicId,
+                        purpose: createForm.purpose.trim(),
+                        visitDate: createForm.visitDate,
+                    },
+                });
+                setOfflineSignedPass(JSON.stringify(signedPass));
+                setVisits((current) => [...current, {
+                    ...pass,
+                    publicId: visitPublicId,
+                    visitor,
+                    status: "OFFLINE_PENDING",
+                }]);
+                setShowCreateModal(false);
+                setSuccess("Offline visit pass created and queued. Share its signed payload with the gate; server sync will resume when connected.");
+                showSuccess("Offline visit pass created and queued.");
+                return;
+            }
+
             const response = await API.post(
                 "/visit/planned",
                 null,
@@ -280,6 +407,34 @@ const ResidentVisitsPage = () => {
             );
 
             const createdVisit = response.data?.data;
+
+            if (passSigningContext && createdVisit?.publicId && createdVisit?.visitor?.publicId) {
+                try {
+                    const validFrom = new Date(`${createForm.visitDate}T00:00:00`);
+                    const expiresAt = new Date(validFrom);
+                    expiresAt.setDate(expiresAt.getDate() + 1);
+                    const signedPass = await signPassOffline({
+                        keyId: passSigningContext.keyId,
+                        residentPublicId: passSigningContext.residentPublicId,
+                        estatePublicId: passSigningContext.estatePublicId,
+                        pass: {
+                            publicId: createdVisit.publicId,
+                            residentPublicId: passSigningContext.residentPublicId,
+                            visitorPublicId: createdVisit.visitor.publicId,
+                            estatePublicId: passSigningContext.estatePublicId,
+                            visitorName: createdVisit.visitor.fullName,
+                            visitorPhone: createdVisit.visitor.phoneNumber || "",
+                            purpose: createdVisit.purpose,
+                            visitDate: createForm.visitDate,
+                            validFrom: validFrom.toISOString(),
+                            expiresAt: expiresAt.toISOString(),
+                        },
+                    });
+                    setOfflineSignedPass(JSON.stringify(signedPass));
+                } catch (signingError) {
+                    console.warn("Visit created but an offline signature could not be prepared:", signingError.message);
+                }
+            }
 
             setShowCreateModal(false);
 
@@ -410,6 +565,16 @@ Generated by EstateFlow.
 
         const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
         window.open(whatsappUrl, "_blank");
+    };
+
+    const copySignedPass = async () => {
+        if (!offlineSignedPass) return;
+        try {
+            await navigator.clipboard.writeText(offlineSignedPass);
+            showSuccess("Signed pass copied. Share it with the gate for offline verification.");
+        } catch {
+            showError("Could not copy the signed pass. Select and copy the text manually.");
+        }
     };
 
     const getStatusClass = (status) => {
@@ -656,6 +821,30 @@ Generated by EstateFlow.
                     <CheckCircle2 size={18} />
                     <span>{success}</span>
                 </div>
+            )}
+
+            {offlineSignedPass && (
+                <section className="visits-main-card" aria-label="Signed offline pass">
+                    <div className="visits-card-header">
+                        <div>
+                            <h2 className="visits-card-title">Signed pass for the gate</h2>
+                            <p className="visits-card-description">Keep this payload available to the guard. It can be verified offline on a device with the estate keys cached.</p>
+                        </div>
+                        <button type="button" className="visits-create-button" onClick={copySignedPass}>
+                            <Copy size={16} /> Copy pass
+                        </button>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "center", padding: "12px 0" }}>
+                        <QRCodeSVG value={offlineSignedPass} size={240} level="M" includeMargin />
+                    </div>
+                    <textarea
+                        value={offlineSignedPass}
+                        readOnly
+                        rows={4}
+                        aria-label="Signed pass JSON"
+                        style={{ width: "100%", boxSizing: "border-box", resize: "vertical", fontFamily: "monospace" }}
+                    />
+                </section>
             )}
 
             {/* ERROR */}

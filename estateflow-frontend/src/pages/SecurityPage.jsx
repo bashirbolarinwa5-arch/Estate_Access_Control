@@ -26,6 +26,7 @@ import { useAuth } from "../context/useAuth";
 import { useToast } from "../components/useToast";
 import BulkImportModal from "../components/BulkImportModal";
 import TempPasswordModal from "../components/TempPasswordModal";
+import PassVerificationPanel from "../components/PassVerificationPanel";
 
 function getResponseData(response) {
     return response?.data?.data ?? response?.data;
@@ -835,6 +836,8 @@ if (isSecurity) {
                     </div>
                 </div>
             </section>
+
+            <PassVerificationPanel />
 
             <section className="security-panel security-pending-panel">
                 <div className="security-panel-header">

@@ -48,6 +48,7 @@ import SuperAdminAdminsPage from "./pages/SuperAdminAdminsPage.jsx";
 import SuperAdminEstatesPage from "./pages/SuperAdminEstatesPage.jsx";
 import SuperAdminActivityPage from "./pages/SuperAdminActivityPage.jsx";
 import GuestApprovalPage from "./pages/GuestApprovalPage.jsx";
+import SyncStatusBanner from "./components/SyncStatusBanner.jsx";
 
 
 /* =========================================================
@@ -765,6 +766,8 @@ function MainLayout() {
 
 
                 <div className="content-area">
+
+                    <SyncStatusBanner />
 
                     <Routes>
 

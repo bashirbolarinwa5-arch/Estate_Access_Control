@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 /*
  * An estate is the tenant-like boundary of EstateFlow.
@@ -25,6 +26,9 @@ public class Estate {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "public_id", updatable = false)
+    private UUID publicId = UUID.randomUUID();
 
     @Column(nullable = false)
     private String estateName;

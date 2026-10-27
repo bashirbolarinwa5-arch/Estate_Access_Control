@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 import java.util.List;
+import java.util.UUID;
 
 @Entity
 @Data
@@ -13,6 +14,9 @@ public class Resident {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "public_id", updatable = false)
+    private UUID publicId = UUID.randomUUID();
 
     @OneToOne
     @JoinColumn(name = "user_id", unique = true)
