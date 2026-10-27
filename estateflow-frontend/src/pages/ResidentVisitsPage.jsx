@@ -144,9 +144,12 @@ const ResidentVisitsPage = () => {
             }
             const registration = await navigator.serviceWorker.ready;
             let subscription = await registration.pushManager.getSubscription();
-            if (pushEnabled && subscription) {
-                await API.delete("/api/push/subscriptions", { data: { endpoint: subscription.endpoint } });
-                await subscription.unsubscribe();
+            if (pushEnabled) {
+                // Disabling must never fall through into the enable flow.
+                if (subscription) {
+                    await API.delete("/api/push/subscriptions", { data: { endpoint: subscription.endpoint } });
+                    await subscription.unsubscribe();
+                }
                 setPushEnabled(false);
                 showSuccess("Visitor alerts disabled on this device.");
                 return;
@@ -164,11 +167,17 @@ const ResidentVisitsPage = () => {
                 const bytes = new Uint8Array(subscription.getKey(name));
                 return btoa(String.fromCharCode(...bytes));
             };
-            await API.post("/api/push/subscriptions", {
-                endpoint: subscription.endpoint,
-                p256dh: encodeKey("p256dh"),
-                auth: encodeKey("auth"),
-            });
+            try {
+                await API.post("/api/push/subscriptions", {
+                    endpoint: subscription.endpoint,
+                    p256dh: encodeKey("p256dh"),
+                    auth: encodeKey("auth"),
+                });
+            } catch (subscribeError) {
+                // The server rejected this subscription; free the browser registration too.
+                await subscription.unsubscribe().catch(() => {});
+                throw subscribeError;
+            }
             setPushEnabled(true);
             showSuccess("Visitor alerts are enabled on this device.");
         } catch (error) {

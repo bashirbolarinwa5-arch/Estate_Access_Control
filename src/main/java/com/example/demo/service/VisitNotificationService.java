@@ -29,7 +29,6 @@ import java.security.Security;
 import java.security.spec.InvalidKeySpecException;
 import java.time.LocalDateTime;
 import java.util.Base64;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.HexFormat;
@@ -90,11 +89,11 @@ public class VisitNotificationService {
                 || !request.endpoint().startsWith("https://") || request.endpoint().length() > 2048) {
             throw new RuntimeException("A valid browser push subscription is required");
         }
+        // Accept any legitimate browser push service (FCM, Mozilla, Apple, Edge, Brave,
+        // Samsung, etc.); the transport protocol and encryption are identical for all of them.
         URI endpoint = URI.create(request.endpoint());
-        String host = endpoint.getHost() == null ? "" : endpoint.getHost().toLowerCase();
-        boolean trustedPushHost = List.of("fcm.googleapis.com", "push.services.mozilla.com", "web.push.apple.com")
-                .stream().anyMatch(allowed -> host.equals(allowed) || host.endsWith("." + allowed));
-        if (!trustedPushHost || (endpoint.getPort() != -1 && endpoint.getPort() != 443)
+        if (endpoint.getHost() == null || endpoint.getHost().isBlank()
+                || (endpoint.getPort() != -1 && endpoint.getPort() != 443)
                 || endpoint.getUserInfo() != null) {
             throw new RuntimeException("This browser push provider is not supported");
         }
