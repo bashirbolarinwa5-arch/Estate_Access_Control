@@ -13,10 +13,44 @@ import {
 } from "lucide-react";
 
 import API from "../services/api";
+import { newPublicId } from "../db/estateflowDb";
+import { currentOwnerKey, getLocalRecords, saveLocalMutation } from "../db/offlineStore";
 
 import { useToast } from "../components/useToast";
 
 import "./ResidentVisitorsPage.css";
+
+/*
+ * Visitors registered with no connection live in the encrypted offline
+ * store until the outbox flushes. Merging them into the server list keeps
+ * the page identical online and offline.
+ */
+async function mergeOfflineVisitors(serverVisitors) {
+    const ownerKey = currentOwnerKey();
+
+    if (!ownerKey) {
+        return serverVisitors;
+    }
+
+    try {
+        const localVisitors = await getLocalRecords("visitors", ownerKey);
+        const known = new Set(
+            serverVisitors.map((visitor) => visitor.publicId).filter(Boolean)
+        );
+
+        const pending = localVisitors
+            .filter((visitor) => visitor.publicId && !known.has(visitor.publicId))
+            .map((visitor) => ({
+                ...visitor,
+                id: visitor.serverId || visitor.publicId,
+                pendingSync: !visitor.serverId,
+            }));
+
+        return [...pending, ...serverVisitors];
+    } catch {
+        return serverVisitors;
+    }
+}
 
 function ResidentVisitorsPage() {
     const { showSuccess, showError } = useToast();
@@ -53,11 +87,11 @@ function ResidentVisitorsPage() {
             const data = response.data;
 
             if (Array.isArray(data)) {
-                setVisitors(data);
+                setVisitors(await mergeOfflineVisitors(data));
             } else if (Array.isArray(data?.data)) {
-                setVisitors(data.data);
+                setVisitors(await mergeOfflineVisitors(data.data));
             } else {
-                setVisitors([]);
+                setVisitors(await mergeOfflineVisitors([]));
             }
 
         } catch (err) {
@@ -86,7 +120,9 @@ function ResidentVisitorsPage() {
                 const result = response.data?.data;
 
                 if (active) {
-                    setVisitors(Array.isArray(result) ? result : []);
+                    setVisitors(
+                        await mergeOfflineVisitors(Array.isArray(result) ? result : [])
+                    );
                 }
             } catch (err) {
                 console.error("Failed to load resident visitors:", err);
@@ -189,6 +225,58 @@ function ResidentVisitorsPage() {
 
         try {
             setSubmitting(true);
+
+            /*
+             * Offline: queue the registration in the outbox and show it
+             * immediately. The sync engine creates it on the server as soon
+             * as the device reconnects, keeping the same public ID so it
+             * can be used for an offline visit right away.
+             */
+            if (!navigator.onLine) {
+                const ownerKey = currentOwnerKey();
+
+                if (!ownerKey) {
+                    throw new Error("Sign in once while online before registering visitors offline.");
+                }
+
+                const storedAuth = JSON.parse(localStorage.getItem("estateflow_auth") || "null");
+                const publicId = newPublicId();
+                const record = {
+                    publicId,
+                    fullName,
+                    phoneNumber,
+                    status: "OFFLINE_PENDING",
+                };
+
+                await saveLocalMutation({
+                    tableName: "visitors",
+                    ownerKey,
+                    actorPublicId: storedAuth?.publicId ?? null,
+                    estatePublicId: storedAuth?.estatePublicId ?? null,
+                    entityType: "VISITOR",
+                    operation: "CREATE",
+                    record,
+                    payload: { fullName, phoneNumber },
+                });
+
+                setVisitors((current) => [
+                    { ...record, id: publicId, pendingSync: true },
+                    ...current,
+                ]);
+
+                setForm({
+                    fullName: "",
+                    phoneNumber: "",
+                });
+
+                setShowModal(false);
+
+                const message = `Visitor registered offline. It syncs automatically when you reconnect.`;
+
+                setSuccessMessage(message);
+                showSuccess(message);
+                return;
+            }
 
             /*
              * The backend will identify the resident from
@@ -446,7 +534,9 @@ function ResidentVisitorsPage() {
                                     </h2>
 
                                     <span>
-                                        Registered Visitor
+                                        {visitor.pendingSync
+                                            ? "Pending sync"
+                                            : "Registered Visitor"}
                                     </span>
 
                                 </div>

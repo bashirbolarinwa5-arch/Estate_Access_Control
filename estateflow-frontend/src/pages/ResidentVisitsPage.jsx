@@ -20,6 +20,7 @@ import { db, newPublicId } from "../db/estateflowDb";
 import { currentOwnerKey, getLocalRecords, saveLocalMutation } from "../db/offlineStore";
 import { createResidentPassSigningKey, signPassOffline } from "../db/passCrypto";
 import { generateOfflineAccessCode } from "../db/accessCode";
+import { flushOutbox } from "../db/syncEngine";
 import { useToast } from "../components/useToast";
 
 import "./ResidentVisitsPage.css";
@@ -44,6 +45,30 @@ async function mergeOfflineVisits(serverVisits) {
         return [...serverVisits, ...pending];
     } catch {
         return serverVisits;
+    }
+}
+
+/*
+ * Visitors registered while offline are queued in the outbox and kept in
+ * the encrypted local store, so the visitor picker must merge them in
+ * instead of dropping them until the next sync.
+ */
+async function mergeOfflineVisitors(serverVisitors) {
+    const ownerKey = currentOwnerKey();
+    if (!ownerKey) return serverVisitors;
+    try {
+        const localVisitors = await getLocalRecords("visitors", ownerKey);
+        const known = new Set(serverVisitors.map((visitor) => visitor.publicId).filter(Boolean));
+        const pending = localVisitors
+            .filter((visitor) => visitor.publicId && !known.has(visitor.publicId))
+            .map((visitor) => ({
+                ...visitor,
+                id: visitor.serverId || visitor.publicId,
+                pendingSync: !visitor.serverId,
+            }));
+        return [...serverVisitors, ...pending];
+    } catch {
+        return serverVisitors;
     }
 }
 
@@ -252,7 +277,7 @@ const ResidentVisitsPage = () => {
 
             const result = response.data?.data;
 
-            setVisitors(Array.isArray(result) ? result : []);
+            setVisitors(await mergeOfflineVisitors(Array.isArray(result) ? result : []));
         } catch (err) {
             console.error("Failed to load resident visitors:", err);
 
@@ -428,12 +453,39 @@ const ResidentVisitsPage = () => {
                 return;
             }
 
+            /*
+             * A visitor registered while offline has no server ID yet, so
+             * flush the outbox first and look the visitor up again instead
+             * of sending NaN to the server.
+             */
+            let visitorServerId = Number(createForm.visitorId);
+
+            if (!Number.isFinite(visitorServerId) || visitorServerId <= 0) {
+                const pendingVisitor = visitors.find((item) => String(item.id) === String(createForm.visitorId));
+
+                await flushOutbox();
+
+                const refreshed = await API.get("/visitor/me");
+                const refreshedVisitors = refreshed.data?.data ?? [];
+                const syncedVisitor = refreshedVisitors.find(
+                    (item) => pendingVisitor?.publicId && item.publicId === pendingVisitor.publicId
+                );
+
+                if (!syncedVisitor) {
+                    const syncError = new Error("That visitor is still syncing. Please try again in a moment.");
+                    syncError.userMessage = syncError.message;
+                    throw syncError;
+                }
+
+                visitorServerId = Number(syncedVisitor.id);
+            }
+
             const response = await API.post(
                 "/visit/planned",
                 null,
                 {
                     params: {
-                        visitorId: Number(createForm.visitorId),
+                        visitorId: visitorServerId,
                         purpose: createForm.purpose.trim(),
                         visitDate: createForm.visitDate,
                     },
@@ -494,6 +546,7 @@ const ResidentVisitsPage = () => {
 
             const message =
                 err.response?.data?.message ||
+                err.userMessage ||
                 "Failed to create planned visit.";
 
             showError(message);
