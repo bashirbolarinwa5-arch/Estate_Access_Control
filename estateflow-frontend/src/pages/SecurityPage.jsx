@@ -49,9 +49,64 @@ function SecurityPage() {
     /*
      * Access codes are the normal flow. The signed payload panel is only a
      * fallback for a gate that has lost its connection, so it is mounted
-     * only while the browser reports being offline.
+     * only when the app cannot reach the server.
+     *
+     * navigator.onLine is not enough: on a hotspot, a captive portal, or a
+     * dead API it still reports "online". A reachability probe decides.
      */
     const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+
+    useEffect(() => {
+        let active = true;
+        let timer = null;
+        const baseUrl = api.defaults.baseURL || "";
+
+        async function probe() {
+            if (!navigator.onLine) {
+                if (active) setIsOnline(false);
+                return;
+            }
+            const controller = new AbortController();
+            const timeout = window.setTimeout(() => controller.abort(), 4000);
+            try {
+                await fetch(`${baseUrl}/`, {
+                    method: "GET",
+                    mode: "no-cors",
+                    cache: "no-store",
+                    signal: controller.signal,
+                });
+                if (active) setIsOnline(true);
+            } catch {
+                if (active) setIsOnline(false);
+            } finally {
+                window.clearTimeout(timeout);
+            }
+        }
+
+        const schedule = () => {
+            void probe();
+            if (timer) window.clearInterval(timer);
+            timer = window.setInterval(() => void probe(), 20_000);
+        };
+
+        schedule();
+        window.addEventListener("online", schedule);
+        window.addEventListener("offline", schedule);
+        /* The API layer fires this when it had to serve a cached response. */
+        window.addEventListener("estateflow:offline-cache-served", () => {
+            if (active) setIsOnline(false);
+        });
+        document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === "visible") schedule();
+        });
+
+        return () => {
+            active = false;
+            if (timer) window.clearInterval(timer);
+            window.removeEventListener("online", schedule);
+            window.removeEventListener("offline", schedule);
+        };
+    }, []);
 
     // Admin security personnel
     const [securityPersonnel, setSecurityPersonnel] = useState([]);
@@ -195,19 +250,6 @@ function SecurityPage() {
             setLoadingSecurity(false);
         }
     }
-
-    useEffect(() => {
-        const onOnline = () => setIsOnline(true);
-        const onOffline = () => setIsOnline(false);
-
-        window.addEventListener("online", onOnline);
-        window.addEventListener("offline", onOffline);
-
-        return () => {
-            window.removeEventListener("online", onOnline);
-            window.removeEventListener("offline", onOffline);
-        };
-    }, []);
 
     useEffect(() => {
         let active = true;
@@ -868,6 +910,8 @@ if (isSecurity) {
                 />
             </div>
 
+            {!isOnline && <PassVerificationPanel />}
+
             <section className="security-panel">
                 <div className="security-panel-header">
                     <div>
@@ -926,8 +970,6 @@ if (isSecurity) {
                     </div>
                 </div>
             </section>
-
-            {!isOnline && <PassVerificationPanel />}
 
             <section className="security-panel security-pending-panel">
                 <div className="security-panel-header">
