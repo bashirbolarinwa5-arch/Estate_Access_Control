@@ -234,6 +234,18 @@ public class SyncCommandProcessor {
         }
         Visit created = invokeDomain(() -> visitService.createPlannedVisit(actor.getUsername(), visitor.getId(), purpose, visitDate));
         created.setPublicId(publicId);
+
+        /*
+         * An offline device generates its own gate code so the resident can
+         * share it immediately, before any network round trip. Keep that code
+         * when it is still available; otherwise the server-generated code from
+         * createPlannedVisit stands and the client picks it up on the next load.
+         */
+        String proposedCode = optionalText(payload, "accessCode", 12).toUpperCase(Locale.ROOT);
+        if (proposedCode.matches("[A-Z0-9]{6}") && visits.findByAccessCode(proposedCode) == null) {
+            created.setAccessCode(proposedCode);
+        }
+
         Visit saved = visits.save(created);
         return new ProcessedCommand(saved.getId(), saved.getPublicId());
     }

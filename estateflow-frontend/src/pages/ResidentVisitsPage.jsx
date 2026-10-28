@@ -25,6 +25,18 @@ import { useToast } from "../components/useToast";
 
 import "./ResidentVisitsPage.css";
 
+/*
+ * Gate code generated on the device so an offline visit can be shared
+ * immediately. Same alphabet and length as the server generator
+ * (6 chars, A-Z/0-9); the server keeps it when it is still free.
+ */
+function generateOfflineAccessCode() {
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    const bytes = new Uint8Array(6);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
+}
+
 async function mergeOfflineVisits(serverVisits) {
     const ownerKey = currentOwnerKey();
     if (!ownerKey) return serverVisits;
@@ -357,6 +369,7 @@ const ResidentVisitsPage = () => {
                 const expiresAt = new Date(validFrom);
                 expiresAt.setDate(expiresAt.getDate() + 1);
                 const visitPublicId = newPublicId();
+                const accessCode = generateOfflineAccessCode();
                 const pass = {
                     publicId: visitPublicId,
                     residentPublicId: passSigningContext.residentPublicId,
@@ -366,6 +379,7 @@ const ResidentVisitsPage = () => {
                     visitorPhone: visitor.phoneNumber || "",
                     purpose: createForm.purpose.trim(),
                     visitDate: createForm.visitDate,
+                    accessCode,
                     validFrom: validFrom.toISOString(),
                     expiresAt: expiresAt.toISOString(),
                 };
@@ -388,6 +402,7 @@ const ResidentVisitsPage = () => {
                         visitorPublicId: visitor.publicId,
                         purpose: createForm.purpose.trim(),
                         visitDate: createForm.visitDate,
+                        accessCode,
                     },
                 });
                 setOfflineSignedPass(JSON.stringify(signedPass));
@@ -398,8 +413,8 @@ const ResidentVisitsPage = () => {
                     status: "OFFLINE_PENDING",
                 }]);
                 setShowCreateModal(false);
-                setSuccess("Offline visit pass created and queued. Share its signed payload with the gate; server sync will resume when connected.");
-                showSuccess("Offline visit pass created and queued.");
+                setSuccess(`Offline visit pass created. Access code: ${accessCode}. Share the signed payload with the gate; it syncs automatically when you reconnect.`);
+                showSuccess(`Offline visit created — code ${accessCode}.`);
                 return;
             }
 
