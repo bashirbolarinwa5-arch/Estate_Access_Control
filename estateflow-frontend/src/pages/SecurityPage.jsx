@@ -869,68 +869,64 @@ if (isSecurity) {
                         </span>
                     </div>
                 ) : (
-                    <div className="security-table-scroll">
-                        <table className="security-table">
-                            <thead>
-                            <tr>
-                                <th>Visitor</th>
-                                <th>Resident</th>
-                                <th>House</th>
-                                <th>Purpose</th>
-                                <th>Access Code</th>
-                                <th>Status</th>
-                                <th>Action</th>
-                            </tr>
-                            </thead>
-
-                            <tbody>
+                    <div className="security-pending-grid">
                             {pendingVisits.map((visit) => {
                                 return (
-                                    <tr key={visit.id}>
-                                        <td>
-                                            <div className="security-person">
-                                                <div className="security-person-icon">
+                                    <article key={visit.id} className="security-pending-card">
+                                        <div className="security-pending-fields">
+                                            <div className="security-pending-visitor">
+                                                <span className="security-pending-label">VISITOR</span>
+                                                <div className="security-person">
+                                                    <div className="security-person-icon">
                                                     <UserRound size={17} />
                                                 </div>
                                                 <div className="security-person-details">
-                                                    <span className="security-person-name">
+                                                    <span className="security-person-name" title={visit.visitor?.fullName || "Unknown"}>
                                                         {visit.visitor?.fullName || "Unknown"}
                                                     </span>
-                                                    <span className="security-person-subtitle">
+                                                    <span className="security-person-subtitle" title={visit.visitor?.phoneNumber || "—"}>
                                                         {visit.visitor?.phoneNumber || "—"}
                                                     </span>
                                                 </div>
                                             </div>
-                                        </td>
-                                        <td>
-                                            {visit.resident?.fullName || "—"}
-                                        </td>
-                                        <td>
-                                            {visit.resident?.houseNumber || "—"}
-                                        </td>
-                                        <td>
-                                            {visit.purpose || "—"}
-                                        </td>
-                                        <td>
-                                            <span className="security-role-badge">
+                                            </div>
+                                            <div className="security-pending-field">
+                                                <span className="security-pending-label">RESIDENT</span>
+                                                <span className="security-pending-value" title={visit.resident?.fullName || "—"}>
+                                                    {visit.resident?.fullName || "—"}
+                                                </span>
+                                            </div>
+                                            <div className="security-pending-field">
+                                                <span className="security-pending-label">HOUSE</span>
+                                                <span className="security-pending-value" title={visit.resident?.houseNumber || "—"}>
+                                                    {visit.resident?.houseNumber || "—"}
+                                                </span>
+                                            </div>
+                                            <div className="security-pending-field security-pending-wide">
+                                                <span className="security-pending-label">PURPOSE</span>
+                                                <span className="security-pending-value" title={visit.purpose || "—"}>
+                                                    {visit.purpose || "—"}
+                                                </span>
+                                            </div>
+                                            <div className="security-pending-field">
+                                                <span className="security-pending-label">ACCESS CODE</span>
+                                                <span className="security-role-badge">
                                                 {visit.accessCode || "—"}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span className="security-role-badge">
-                                                Awaiting resident
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <button type="button" className="security-table-button edit" onClick={() => callResident(visit)}>
-                                                <Phone size={14} /> Call resident
-                                            </button>
-                                        </td>
-                                    </tr>
+                                                </span>
+                                            </div>
+                                            <div className="security-pending-field">
+                                                <span className="security-pending-label">STATUS</span>
+                                                <span className="security-role-badge">Awaiting resident</span>
+                                            </div>
+                                            <div className="security-pending-action security-pending-wide">
+                                                <button type="button" className="security-table-button edit" onClick={() => callResident(visit)}>
+                                                    <Phone size={14} /> Call resident
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </article>
                                 );
                             })}
-                            </tbody>
-                        </table>
                     </div>
                 )}
             </section>
@@ -974,58 +970,77 @@ if (isSecurity) {
                         </span>
                     </div>
                 ) : (
-                    <div className="security-table-scroll">
-                        <table className="security-table">
-                            <thead>
-                            <tr>
-                                <th>Visitor</th>
-                                <th>Resident</th>
-                                <th>House</th>
-                                <th>Access Code</th>
-                                <th>Check-In Time</th>
-                                <th>Action</th>
-                            </tr>
-                            </thead>
+                    <div className="security-inside-grid">
+                        {insideVisits.map((visit) => {
+                            const isProcessing =
+                                processingInsideId === visit.id;
 
-                            <tbody>
-                            {insideVisits.map((visit) => {
-                                const isProcessing =
-                                    processingInsideId === visit.id;
-
-                                return (
-                                    <tr key={visit.id}>
-                                        <td>
+                            return (
+                                <article key={visit.id} className="security-inside-card">
+                                    <div className="security-inside-fields">
+                                        <div className="security-inside-visitor">
+                                            <span className="security-inside-label">VISITOR</span>
                                             <div className="security-person">
                                                 <div className="security-person-icon">
                                                     <UserRound size={17} />
                                                 </div>
                                                 <div className="security-person-details">
-                                                    <span className="security-person-name">
+                                                    <span
+                                                        className="security-person-name"
+                                                        title={visit.visitor?.fullName || "Unknown"}
+                                                    >
                                                         {visit.visitor?.fullName || "Unknown"}
                                                     </span>
-                                                    <span className="security-person-subtitle">
+                                                    <span
+                                                        className="security-person-subtitle"
+                                                        title={visit.visitor?.phoneNumber || "—"}
+                                                    >
                                                         {visit.visitor?.phoneNumber || "—"}
                                                     </span>
                                                 </div>
                                             </div>
-                                        </td>
-                                        <td>
-                                            {visit.resident?.fullName || "—"}
-                                        </td>
-                                        <td>
-                                            {visit.resident?.houseNumber || "—"}
-                                        </td>
-                                        <td>
-                                            <span className="security-role-badge">
+                                        </div>
+
+                                        <div className="security-inside-field">
+                                            <span className="security-inside-label">RESIDENT</span>
+                                            <span
+                                                className="security-inside-value"
+                                                title={visit.resident?.fullName || "—"}
+                                            >
+                                                {visit.resident?.fullName || "—"}
+                                            </span>
+                                        </div>
+
+                                        <div className="security-inside-field">
+                                            <span className="security-inside-label">HOUSE</span>
+                                            <span
+                                                className="security-inside-value"
+                                                title={visit.resident?.houseNumber || "—"}
+                                            >
+                                                {visit.resident?.houseNumber || "—"}
+                                            </span>
+                                        </div>
+
+                                        <div className="security-inside-field">
+                                            <span className="security-inside-label">ACCESS CODE</span>
+                                            <span
+                                                className="security-inside-value security-inside-access-code"
+                                                title={visit.accessCode || "—"}
+                                            >
                                                 {visit.accessCode || "—"}
                                             </span>
-                                        </td>
-                                        <td>
-                                            {visit.checkInTime
-                                                ? new Date(visit.checkInTime).toLocaleTimeString()
-                                                : "—"}
-                                        </td>
-                                        <td>
+                                        </div>
+
+                                        <div className="security-inside-field">
+                                            <span className="security-inside-label">CHECK-IN TIME</span>
+                                            <span className="security-inside-value">
+                                                {visit.checkInTime
+                                                    ? new Date(visit.checkInTime).toLocaleTimeString()
+                                                    : "—"}
+                                            </span>
+                                        </div>
+
+                                        <div className="security-inside-action">
                                             <button
                                                 type="button"
                                                 className="security-table-button delete"
@@ -1040,12 +1055,11 @@ if (isSecurity) {
                                                     : <LogOut size={14} />}
                                                 Check Out
                                             </button>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                            </tbody>
-                        </table>
+                                        </div>
+                                    </div>
+                                </article>
+                            );
+                        })}
                     </div>
                 )}
             </section>
@@ -1734,18 +1748,29 @@ const securityStyles = `
 .security-panel-header p { margin: 5px 0 0; color: #8a99b0; font-size: 13px; }
 .security-inside-panel { margin-top: 22px; }
 .security-inside-panel .security-panel-header { gap: 16px; }
-.security-inside-panel .security-table th:nth-child(1),
-.security-inside-panel .security-table td:nth-child(1) { width: 24%; }
-.security-inside-panel .security-table th:nth-child(2),
-.security-inside-panel .security-table td:nth-child(2) { width: 19%; }
-.security-inside-panel .security-table th:nth-child(3),
-.security-inside-panel .security-table td:nth-child(3) { width: 10%; }
-.security-inside-panel .security-table th:nth-child(4),
-.security-inside-panel .security-table td:nth-child(4) { width: 14%; }
-.security-inside-panel .security-table th:nth-child(5),
-.security-inside-panel .security-table td:nth-child(5) { width: 15%; }
-.security-inside-panel .security-table th:nth-child(6),
-.security-inside-panel .security-table td:nth-child(6) { width: 18%; }
+.security-inside-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+    gap: 12px; min-width: 0; padding: 18px 22px 22px;
+}
+.security-inside-card {
+    min-width: 0; padding: 14px; border: 1px solid #e2e8f0; border-radius: 12px;
+    background: #fff; box-shadow: 0 1px 3px rgba(15, 23, 42, .06);
+}
+.security-inside-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.security-inside-visitor, .security-inside-action { grid-column: 1 / -1; min-width: 0; }
+.security-inside-field { min-width: 0; }
+.security-inside-label {
+    display: block; margin-bottom: 5px; color: #64748b; font-size: 11px;
+    font-weight: 700; letter-spacing: .06em;
+}
+.security-inside-value {
+    display: block; min-width: 0; overflow: hidden; color: #0f172a;
+    font-weight: 600; text-overflow: ellipsis; white-space: nowrap;
+}
+.security-inside-access-code { font-weight: 700; font-variant-numeric: tabular-nums; }
+.security-inside-action { padding-top: 2px; }
+.security-inside-action .security-table-button,
+.security-pending-action .security-table-button { width: 100%; height: 40px; }
 .security-access-content { padding: 26px; display: flex; align-items: center; gap: 18px; }
 .security-access-icon {
     width: 52px; height: 52px; border-radius: 14px; background: #edf4ff; color: #2563eb;
@@ -1833,18 +1858,27 @@ const securityStyles = `
 .security-personnel-panel .security-table th:nth-child(6),
 .security-personnel-panel .security-table td:nth-child(6) { width: 220px; }
 .security-pending-panel { margin-top: 22px; }
-.security-pending-panel .security-table th:nth-child(1),
-.security-pending-panel .security-table td:nth-child(1) { width: 25%; }
-.security-pending-panel .security-table th:nth-child(2),
-.security-pending-panel .security-table td:nth-child(2) { width: 20%; }
-.security-pending-panel .security-table th:nth-child(3),
-.security-pending-panel .security-table td:nth-child(3) { width: 10%; }
-.security-pending-panel .security-table th:nth-child(4),
-.security-pending-panel .security-table td:nth-child(4) { width: 15%; }
-.security-pending-panel .security-table th:nth-child(5),
-.security-pending-panel .security-table td:nth-child(5) { width: 14%; }
-.security-pending-panel .security-table th:nth-child(6),
-.security-pending-panel .security-table td:nth-child(6) { width: 16%; }
+.security-pending-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+    gap: 12px; min-width: 0; padding: 18px 22px 22px;
+}
+.security-pending-card {
+    min-width: 0; padding: 14px; border: 1px solid #e2e8f0; border-radius: 12px;
+    background: #fff; box-shadow: 0 1px 3px rgba(15, 23, 42, .06);
+}
+.security-pending-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.security-pending-visitor, .security-pending-wide { grid-column: 1 / -1; min-width: 0; }
+.security-pending-field { min-width: 0; }
+.security-pending-label {
+    display: block; margin-bottom: 5px; color: #64748b; font-size: 11px;
+    font-weight: 700; letter-spacing: .06em;
+}
+.security-pending-value {
+    display: block; min-width: 0; overflow: hidden; color: #0f172a;
+    font-weight: 600; text-overflow: ellipsis; white-space: nowrap;
+}
+.security-pending-field .security-role-badge { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.security-pending-action { padding-top: 2px; }
 .security-id { color: #8795aa; font-weight: 700; }
 .security-person { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .security-person-icon {
@@ -1902,6 +1936,10 @@ const securityStyles = `
     .security-actions { width: 100%; }
     .security-primary-button { flex: 1; }
     .security-stat-grid { grid-template-columns: 1fr; }
+    .security-pending-grid { grid-template-columns: minmax(0, 1fr); padding: 14px; }
+    .security-inside-grid { grid-template-columns: minmax(0, 1fr); padding: 14px; }
+    .security-pending-card, .security-inside-card { padding: 16px; }
+    .security-pending-fields, .security-inside-fields { gap: 10px; }
     .security-panel-header { padding: 20px; }
     .security-access-content { padding: 20px; }
     .security-access-icon { display: none; }
