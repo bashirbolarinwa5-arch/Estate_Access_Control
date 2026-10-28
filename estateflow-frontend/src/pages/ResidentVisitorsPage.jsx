@@ -13,8 +13,7 @@ import {
 } from "lucide-react";
 
 import API from "../services/api";
-import { newPublicId } from "../db/estateflowDb";
-import { currentOwnerKey, getLocalRecords, saveLocalMutation } from "../db/offlineStore";
+import { currentOwnerKey, getLocalRecords, saveVisitor } from "../db/offlineStore";
 
 import { useToast } from "../components/useToast";
 
@@ -242,27 +241,17 @@ function ResidentVisitorsPage() {
                 }
 
                 const storedAuth = JSON.parse(localStorage.getItem("estateflow_auth") || "null");
-                const publicId = newPublicId();
-                const record = {
-                    publicId,
+
+                const record = await saveVisitor({
+                    ownerKey,
                     fullName,
                     phoneNumber,
-                    status: "OFFLINE_PENDING",
-                };
-
-                await saveLocalMutation({
-                    tableName: "visitors",
-                    ownerKey,
                     actorPublicId: storedAuth?.publicId ?? null,
                     estatePublicId: storedAuth?.estatePublicId ?? null,
-                    entityType: "VISITOR",
-                    operation: "CREATE",
-                    record,
-                    payload: { fullName, phoneNumber },
                 });
 
                 setVisitors((current) => [
-                    { ...record, id: publicId, pendingSync: true },
+                    { ...record, id: record.publicId, pendingSync: true },
                     ...current,
                 ]);
 

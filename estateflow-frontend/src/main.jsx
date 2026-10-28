@@ -36,6 +36,13 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
                 /* Check for a newer worker right away. */
                 registration.update().catch(() => {});
 
+                /* ...and again whenever the tab comes back to the foreground. */
+                document.addEventListener("visibilitychange", () => {
+                    if (document.visibilityState === "visible") {
+                        registration.update().catch(() => {});
+                    }
+                });
+
                 /*
                  * When a newly deployed worker takes control, reload once so
                  * the page runs the current bundle. Only armed when a worker
@@ -58,3 +65,57 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
 }
 
 startSyncEngine();
+
+/*
+ * A deploy changes the hashed bundle name. A service worker that is still
+ * serving an older cached shell (or a tab left open across a deploy) would
+ * otherwise keep running yesterday's code — including older form logic.
+ *
+ * Compare the bundle this page is running with the one the server serves
+ * and reload when they differ. Only checked when the tab becomes visible
+ * again after at least a minute hidden, so typing is never interrupted.
+ */
+(function watchForDeploy() {
+    if (!import.meta.env.PROD) return;
+
+    let hiddenAt = 0;
+    let lastReloadAt = Number(sessionStorage.getItem("estateflow:last-update-reload") || 0);
+
+    async function reloadIfBundleChanged() {
+        if (!navigator.onLine) return;
+        if (Date.now() - lastReloadAt < 60_000) return;
+
+        try {
+            const response = await fetch(`/index.html?deploy-check=${Date.now()}`, { cache: "no-store" });
+            if (!response.ok) return;
+
+            const html = await response.text();
+            const deployed = (html.match(/assets\/index-[A-Za-z0-9_-]+\.js/) || [])[0];
+            if (!deployed) return;
+
+            const running = Array.from(document.scripts)
+                .map((script) => script.src)
+                .find((src) => /assets\/index-[A-Za-z0-9_-]+\.js/.test(src));
+
+            if (!running || running.includes(deployed)) return;
+
+            lastReloadAt = Date.now();
+            sessionStorage.setItem("estateflow:last-update-reload", String(lastReloadAt));
+            window.location.reload();
+        } catch {
+            /* Offline or blocked: keep running the current bundle. */
+        }
+    }
+
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") {
+            hiddenAt = Date.now();
+            return;
+        }
+        if (hiddenAt && Date.now() - hiddenAt > 60_000) {
+            void reloadIfBundleChanged();
+        }
+    });
+
+    window.addEventListener("online", () => void reloadIfBundleChanged());
+})();

@@ -239,6 +239,44 @@ export async function getLocalRecords(tableName, ownerKey) {
     })));
 }
 
+/*
+ * Local-first visitor registration.
+ *
+ * Writes the visitor to the encrypted IndexedDB store and to the outbox in
+ * one step, so the caller never has to touch the network. It is used both
+ * when the browser reports being offline and when an online registration
+ * fails without a server response.
+ */
+export async function saveVisitor({
+    ownerKey,
+    fullName,
+    phoneNumber,
+    actorPublicId = null,
+    estatePublicId = null,
+}) {
+    requireOwnerKey(ownerKey);
+
+    const record = {
+        publicId: newPublicId(),
+        fullName,
+        phoneNumber,
+        status: "OFFLINE_PENDING",
+    };
+
+    await saveLocalMutation({
+        tableName: "visitors",
+        ownerKey,
+        actorPublicId,
+        estatePublicId,
+        entityType: "VISITOR",
+        operation: "CREATE",
+        record,
+        payload: { fullName, phoneNumber },
+    });
+
+    return record;
+}
+
 export async function getQueuedMutations(ownerKey, limit = 50) {
     requireOwnerKey(ownerKey);
     const records = await db.outbox

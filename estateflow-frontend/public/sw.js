@@ -12,7 +12,7 @@
  *     talks to the API live and shows its own inline error state.
  */
 
-const CACHE_NAME = "estateflow-shell-v3";
+const CACHE_NAME = "estateflow-shell-v4";
 const OUTBOX_SYNC_TAG = "estateflow-outbox";
 
 const SHELL_FILES = [
