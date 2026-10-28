@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { QrCode, RefreshCw, ShieldCheck, X } from "lucide-react";
+import jsQR from "jsqr";
 import api from "../services/api";
 import { cacheTrustedPassKey, verifyPassOffline } from "../db/passCrypto";
 import { currentOwnerKey, saveLocalMutation } from "../db/offlineStore";
@@ -53,38 +54,66 @@ export default function PassVerificationPanel() {
 
     async function startCameraScan() {
         setCameraError("");
-        const BarcodeDetectorApi = window.BarcodeDetector;
-        if (!BarcodeDetectorApi || !navigator.mediaDevices?.getUserMedia) {
-            setCameraError("QR scanning is not supported by this browser. Paste the signed pass text instead.");
+        if (!navigator.mediaDevices?.getUserMedia) {
+            setCameraError("This browser cannot open the camera. Paste the signed pass text instead.");
             return;
         }
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { ideal: "environment" } },
+            });
             streamRef.current = stream;
             setCameraActive(true);
             await new Promise((resolve) => requestAnimationFrame(resolve));
             if (!videoRef.current) throw new Error("Camera preview could not be opened.");
             videoRef.current.srcObject = stream;
             await videoRef.current.play();
-            const detector = new BarcodeDetectorApi({ formats: ["qr_code"] });
-            const scan = async () => {
-                if (!videoRef.current || !streamRef.current) return;
-                try {
-                    const codes = await detector.detect(videoRef.current);
-                    if (codes[0]?.rawValue) {
-                        setPassText(codes[0].rawValue);
-                        setCameraActive(false);
-                        streamRef.current.getTracks().forEach((track) => track.stop());
-                        streamRef.current = null;
-                        setMessage("QR payload captured. Verify it to check the offline signature.");
-                        return;
+
+            /*
+             * jsQR is bundled with the app, so QR scanning works on every
+             * browser (including Chrome on Windows and Android WebViews)
+             * and offline — unlike the BarcodeDetector API, which most
+             * browsers still do not implement.
+             */
+            const canvas = document.createElement("canvas");
+            const context = canvas.getContext("2d", { willReadFrequently: true });
+            let lastScanAt = 0;
+
+            const scan = (timestamp) => {
+                const video = videoRef.current;
+                if (!video || !streamRef.current) return;
+
+                if (timestamp - lastScanAt >= 120 && video.readyState === 4) {
+                    lastScanAt = timestamp;
+                    try {
+                        const width = video.videoWidth;
+                        const height = video.videoHeight;
+                        if (width && height) {
+                            canvas.width = width;
+                            canvas.height = height;
+                            context.drawImage(video, 0, 0, width, height);
+                            const frame = context.getImageData(0, 0, width, height);
+                            const code = jsQR(frame.data, width, height, {
+                                inversionAttempts: "dontInvert",
+                            });
+                            if (code?.data) {
+                                setPassText(code.data);
+                                setCameraActive(false);
+                                streamRef.current?.getTracks().forEach((track) => track.stop());
+                                streamRef.current = null;
+                                setMessage("QR payload captured. Verify it to check the offline signature.");
+                                return;
+                            }
+                        }
+                    } catch {
+                        /* A single unreadable frame is fine; keep scanning. */
                     }
-                } catch {
-                    setCameraError("Could not read a QR code from the camera. Try pasting the pass text.");
                 }
-                scanFrameRef.current = requestAnimationFrame(() => void scan());
+
+                scanFrameRef.current = requestAnimationFrame(scan);
             };
-            void scan();
+
+            scanFrameRef.current = requestAnimationFrame(scan);
         } catch (error) {
             streamRef.current?.getTracks().forEach((track) => track.stop());
             streamRef.current = null;
