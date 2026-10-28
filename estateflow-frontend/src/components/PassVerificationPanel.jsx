@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { QrCode, RefreshCw, ShieldCheck, X } from "lucide-react";
-import jsQR from "jsqr";
+import { useEffect, useState } from "react";
+import { RefreshCw, ShieldCheck } from "lucide-react";
 import api from "../services/api";
 import { cacheTrustedPassKey, verifyPassOffline } from "../db/passCrypto";
 import { currentOwnerKey, saveLocalMutation } from "../db/offlineStore";
@@ -11,11 +10,6 @@ export default function PassVerificationPanel() {
     const [message, setMessage] = useState("Loading trusted pass keys…");
     const [result, setResult] = useState(null);
     const [refreshing, setRefreshing] = useState(false);
-    const [cameraError, setCameraError] = useState("");
-    const [cameraActive, setCameraActive] = useState(false);
-    const videoRef = useRef(null);
-    const streamRef = useRef(null);
-    const scanFrameRef = useRef(null);
 
     async function refreshTrustedKeys() {
         if (!navigator.onLine) {
@@ -46,89 +40,6 @@ export default function PassVerificationPanel() {
             window.removeEventListener("online", onOnline);
         };
     }, []);
-
-    useEffect(() => () => {
-        if (scanFrameRef.current) cancelAnimationFrame(scanFrameRef.current);
-        streamRef.current?.getTracks().forEach((track) => track.stop());
-    }, []);
-
-    async function startCameraScan() {
-        setCameraError("");
-        if (!navigator.mediaDevices?.getUserMedia) {
-            setCameraError("This browser cannot open the camera. Paste the signed pass text instead.");
-            return;
-        }
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: { ideal: "environment" } },
-            });
-            streamRef.current = stream;
-            setCameraActive(true);
-            await new Promise((resolve) => requestAnimationFrame(resolve));
-            if (!videoRef.current) throw new Error("Camera preview could not be opened.");
-            videoRef.current.srcObject = stream;
-            await videoRef.current.play();
-
-            /*
-             * jsQR is bundled with the app, so QR scanning works on every
-             * browser (including Chrome on Windows and Android WebViews)
-             * and offline — unlike the BarcodeDetector API, which most
-             * browsers still do not implement.
-             */
-            const canvas = document.createElement("canvas");
-            const context = canvas.getContext("2d", { willReadFrequently: true });
-            let lastScanAt = 0;
-
-            const scan = (timestamp) => {
-                const video = videoRef.current;
-                if (!video || !streamRef.current) return;
-
-                if (timestamp - lastScanAt >= 120 && video.readyState === 4) {
-                    lastScanAt = timestamp;
-                    try {
-                        const width = video.videoWidth;
-                        const height = video.videoHeight;
-                        if (width && height) {
-                            canvas.width = width;
-                            canvas.height = height;
-                            context.drawImage(video, 0, 0, width, height);
-                            const frame = context.getImageData(0, 0, width, height);
-                            const code = jsQR(frame.data, width, height, {
-                                inversionAttempts: "dontInvert",
-                            });
-                            if (code?.data) {
-                                setPassText(code.data);
-                                setCameraActive(false);
-                                streamRef.current?.getTracks().forEach((track) => track.stop());
-                                streamRef.current = null;
-                                setMessage("QR payload captured. Verify it to check the offline signature.");
-                                return;
-                            }
-                        }
-                    } catch {
-                        /* A single unreadable frame is fine; keep scanning. */
-                    }
-                }
-
-                scanFrameRef.current = requestAnimationFrame(scan);
-            };
-
-            scanFrameRef.current = requestAnimationFrame(scan);
-        } catch (error) {
-            streamRef.current?.getTracks().forEach((track) => track.stop());
-            streamRef.current = null;
-            setCameraActive(false);
-            setCameraError(error.message || "Camera access was denied. Paste the signed pass text instead.");
-        }
-    }
-
-    function stopCameraScan() {
-        if (scanFrameRef.current) cancelAnimationFrame(scanFrameRef.current);
-        scanFrameRef.current = null;
-        streamRef.current?.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
-        setCameraActive(false);
-    }
 
     async function verify(event) {
         event.preventDefault();
@@ -171,7 +82,7 @@ export default function PassVerificationPanel() {
             <div className="security-panel-header">
                 <div>
                     <h2 id="offline-pass-verification-title">Verify Visitor Pass</h2>
-                    <p>Check a resident-signed pass on this device. Works without internet.</p>
+                    <p>Paste the signed pass the resident shared with you. Verified on this device, without internet.</p>
                 </div>
                 <button
                     type="button"
@@ -186,52 +97,20 @@ export default function PassVerificationPanel() {
             </div>
 
             <form className="security-pass-form" onSubmit={verify}>
-                <div className="security-pass-actions">
-                    {!cameraActive ? (
-                        <button type="button" className="security-primary-button security-pass-scan" onClick={startCameraScan}>
-                            <QrCode size={16} /> Scan QR code
-                        </button>
-                    ) : (
-                        <button type="button" className="security-secondary-button security-pass-scan" onClick={stopCameraScan}>
-                            <X size={16} /> Stop camera
-                        </button>
-                    )}
-                    <span className="security-pass-hint">
-                        Scanning happens on this device; the signature is verified offline.
-                    </span>
-                </div>
+                <label htmlFor="signed-pass-payload" className="security-pass-label">
+                    Signed pass payload
+                </label>
 
-                {cameraActive && (
-                    <video
-                        ref={videoRef}
-                        muted
-                        playsInline
-                        className="security-pass-video"
-                    />
-                )}
-
-                {cameraError && (
-                    <div className="security-pass-result error" role="status">
-                        <span>{cameraError}</span>
-                    </div>
-                )}
-
-                <details className="security-pass-manual">
-                    <summary>Paste pass manually</summary>
-                    <label htmlFor="signed-pass-payload" className="security-pass-label">
-                        Signed pass payload
-                    </label>
-                    <textarea
-                        id="signed-pass-payload"
-                        value={passText}
-                        onChange={(event) => setPassText(event.target.value)}
-                        placeholder='Paste the signed pass JSON, e.g. {"pass": …}'
-                        rows={5}
-                        autoComplete="off"
-                        spellCheck="false"
-                        className="security-pass-textarea"
-                    />
-                </details>
+                <textarea
+                    id="signed-pass-payload"
+                    value={passText}
+                    onChange={(event) => setPassText(event.target.value)}
+                    placeholder='Paste the signed pass JSON, e.g. {"pass": …}'
+                    rows={5}
+                    autoComplete="off"
+                    spellCheck="false"
+                    className="security-pass-textarea"
+                />
 
                 <div className="security-pass-footer">
                     <button type="submit" className="security-primary-button" disabled={!passText.trim()}>

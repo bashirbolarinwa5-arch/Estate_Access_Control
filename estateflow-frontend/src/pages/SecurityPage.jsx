@@ -1754,29 +1754,19 @@ const securityStyles = `
 }
 .security-pass-key-button:hover:not(:disabled) { background: #f8fafc; }
 .security-pass-key-button:disabled { opacity: .65; cursor: not-allowed; }
-.security-pass-form { display: grid; gap: 14px; padding: 20px 25px 24px; }
-.security-pass-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-.security-pass-scan { min-width: 190px; }
-.security-pass-hint { flex: 1; min-width: 180px; color: #8a99b0; font-size: 12px; line-height: 1.5; }
-.security-pass-video { width: 100%; max-height: 260px; object-fit: cover; border-radius: 12px; background: #0f172a; }
-.security-pass-manual { border: 1px solid #e6ecf4; border-radius: 12px; background: #f8fafc; overflow: hidden; }
-.security-pass-manual summary {
-    padding: 12px 15px; color: #52627d; font-size: 12px; font-weight: 700;
-    cursor: pointer; list-style: none;
-}
-.security-pass-manual summary::-webkit-details-marker { display: none; }
-.security-pass-manual summary::after { content: " ▾"; color: #95a2b7; }
-.security-pass-manual[open] summary { border-bottom: 1px solid #e6ecf4; }
+.security-pass-form { display: grid; gap: 10px; padding: 20px 25px 24px; }
 .security-pass-label {
-    display: block; padding: 12px 15px 0; color: #64748b;
-    font-size: 11px; font-weight: 700; letter-spacing: .06em;
+    display: block; color: #64748b;
+    font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
 }
 .security-pass-textarea {
-    width: 100%; box-sizing: border-box; min-height: 116px; resize: vertical;
-    padding: 9px 15px 14px; border: none; outline: none; background: transparent;
+    width: 100%; box-sizing: border-box; min-height: 132px; resize: vertical;
+    padding: 12px 14px; border: 1px solid #dce4ef; border-radius: 10px; outline: none;
+    background: #fff; color: #253149;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12px; line-height: 1.55; color: #253149;
+    font-size: 12px; line-height: 1.55;
 }
+.security-pass-textarea:focus { border-color: #5b8def; box-shadow: 0 0 0 4px rgba(37, 99, 235, .08); }
 .security-pass-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .security-pass-status { flex: 1; min-width: 180px; color: #8a99b0; font-size: 12px; font-weight: 600; }
 .security-pass-result {
@@ -2060,7 +2050,7 @@ const securityStyles = `
     .security-form-row { grid-template-columns: 1fr; gap: 0; }
     .security-modal-header, .security-modal-form { padding: 20px; }
     .security-pass-form { padding: 18px 20px 20px; }
-    .security-pass-scan, .security-pass-footer .security-primary-button { width: 100%; }
+    .security-pass-footer .security-primary-button { width: 100%; }
     .security-checkin-result-header { padding: 19px; }
     .security-checkin-result-header h2 { font-size: 16px; }
     .security-checkin-details { grid-template-columns: 1fr; }
