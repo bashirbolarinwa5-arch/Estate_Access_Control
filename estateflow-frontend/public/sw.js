@@ -12,7 +12,7 @@
  *     talks to the API live and shows its own inline error state.
  */
 
-const CACHE_NAME = "estateflow-shell-v2";
+const CACHE_NAME = "estateflow-shell-v3";
 const OUTBOX_SYNC_TAG = "estateflow-outbox";
 
 const SHELL_FILES = [
@@ -114,7 +114,9 @@ self.addEventListener("fetch", (event) => {
 
     if (request.mode === "navigate") {
         event.respondWith(
-            fetch(request)
+            // Always revalidate the app shell so a fresh deploy is picked
+            // up immediately instead of serving an older cached index.html.
+            fetch(request, { cache: "reload" })
                 .then((response) => {
                     const copy = response.clone();
 
