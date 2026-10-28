@@ -450,12 +450,16 @@ const ResidentVisitsPage = () => {
 
         const message = reason === "unreachable"
             ? `The gate server could not be reached, so this visit is saved on your device. Access code: ${accessCode}. It syncs automatically.`
-            : `Offline visit pass created. Access code: ${accessCode}. It syncs automatically when you reconnect.`;
+            : reason === "local-visitor"
+                ? `Visit saved on your device. It syncs together with the new visitor. Access code: ${accessCode}.`
+                : `Offline visit pass created. Access code: ${accessCode}. It syncs automatically when you reconnect.`;
 
         setSuccess(message);
         showSuccess(reason === "unreachable"
             ? `Server unreachable — visit saved on this device. Code ${accessCode}.`
-            : `Offline visit created — code ${accessCode}.`);
+            : reason === "local-visitor"
+                ? `Visit saved — code ${accessCode}. Syncs with the new visitor.`
+                : `Offline visit created — code ${accessCode}.`);
     };
 
     const createPlannedVisit = async (event) => {
@@ -497,35 +501,22 @@ const ResidentVisitsPage = () => {
             }
 
             /*
-             * A visitor registered while offline has no server ID yet, so
-             * flush the outbox first and look the visitor up again instead
-             * of sending NaN to the server.
+             * A visitor registered offline has no server ID until the
+             * outbox flushes. Do not block the resident on that: queue the
+             * visit locally as well. The outbox sends the visitor first,
+             * then this visit, because it is ordered by creation time.
              */
+            let visitorServerId = Number(createForm.visitorId);
+
+            if (!Number.isFinite(visitorServerId) || visitorServerId <= 0) {
+                void flushOutbox();
+                await queuePlannedVisitOffline("local-visitor");
+                return;
+            }
+
             let createdVisit;
 
             try {
-                let visitorServerId = Number(createForm.visitorId);
-
-                if (!Number.isFinite(visitorServerId) || visitorServerId <= 0) {
-                    const pendingVisitor = visitors.find((item) => String(item.id) === String(createForm.visitorId));
-
-                    await flushOutbox();
-
-                    const refreshed = await API.get("/visitor/me");
-                    const refreshedVisitors = refreshed.data?.data ?? [];
-                    const syncedVisitor = refreshedVisitors.find(
-                        (item) => pendingVisitor?.publicId && item.publicId === pendingVisitor.publicId
-                    );
-
-                    if (!syncedVisitor) {
-                        const syncError = new Error("That visitor is still syncing. Please try again in a moment.");
-                        syncError.userMessage = syncError.message;
-                        throw syncError;
-                    }
-
-                    visitorServerId = Number(syncedVisitor.id);
-                }
-
                 const response = await API.post(
                     "/visit/planned",
                     null,
@@ -542,13 +533,11 @@ const ResidentVisitsPage = () => {
             } catch (requestError) {
                 /*
                  * navigator.onLine can still be true on a captive Wi-Fi
-                 * network or when the server is down. In that case a
-                 * rejected request without a response means "no network",
-                 * so queue the visit exactly like a real offline create.
+                 * network or when the server is down. A rejected request
+                 * without a response means "no network", so queue the visit
+                 * exactly like a real offline create.
                  */
-                if (requestError.response || requestError.userMessage) {
-                    throw requestError;
-                }
+                if (requestError.response) throw requestError;
 
                 await queuePlannedVisitOffline("unreachable");
                 return;
