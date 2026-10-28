@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { QrCode, RefreshCw, ShieldCheck, X } from "lucide-react";
 import api from "../services/api";
 import { cacheTrustedPassKey, verifyPassOffline } from "../db/passCrypto";
 import { currentOwnerKey, saveLocalMutation } from "../db/offlineStore";
@@ -25,7 +26,9 @@ export default function PassVerificationPanel() {
             const response = await api.get("/api/pass-keys/estate");
             const keys = response.data?.data || [];
             for (const key of keys) await cacheTrustedPassKey(key);
-            setMessage(`Trusted key cache refreshed (${keys.length} active key${keys.length === 1 ? "" : "s"}).`);
+            setMessage(keys.length === 0
+                ? "No resident offline passes are enrolled yet. They appear here after a resident creates one while online."
+                : `Trusted key cache refreshed (${keys.length} active key${keys.length === 1 ? "" : "s"}).`);
         } catch (error) {
             setMessage(error.response?.data?.message || "Could not refresh keys; previously cached keys remain available.");
         } finally {
@@ -135,48 +138,88 @@ export default function PassVerificationPanel() {
     }
 
     return (
-        <section className="security-panel" aria-labelledby="offline-pass-verification-title">
+        <section className="security-panel security-pass-panel" aria-labelledby="offline-pass-verification-title">
             <div className="security-panel-header">
                 <div>
-                    <h2 id="offline-pass-verification-title">Offline Pass Verification</h2>
-                    <p>Verify a resident-signed pass locally. No network request is made during verification.</p>
+                    <h2 id="offline-pass-verification-title">Verify Visitor Pass</h2>
+                    <p>Check a resident-signed pass on this device. Works without internet.</p>
                 </div>
-                <button type="button" className="security-refresh-button" onClick={refreshTrustedKeys} disabled={refreshing}>
+                <button
+                    type="button"
+                    className="security-pass-key-button"
+                    onClick={refreshTrustedKeys}
+                    disabled={refreshing}
+                    title="Refresh trusted resident pass keys"
+                >
+                    <RefreshCw size={14} className={refreshing ? "security-small-spinner" : ""} />
                     {refreshing ? "Refreshing…" : "Refresh keys"}
                 </button>
             </div>
-            <form onSubmit={verify} style={{ display: "grid", gap: 12 }}>
-                <label htmlFor="signed-pass-payload">Signed pass payload</label>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+
+            <form className="security-pass-form" onSubmit={verify}>
+                <div className="security-pass-actions">
                     {!cameraActive ? (
-                        <button type="button" className="security-action-button" onClick={startCameraScan}>Scan QR code</button>
+                        <button type="button" className="security-primary-button security-pass-scan" onClick={startCameraScan}>
+                            <QrCode size={16} /> Scan QR code
+                        </button>
                     ) : (
-                        <button type="button" className="security-action-button" onClick={stopCameraScan}>Stop camera</button>
+                        <button type="button" className="security-secondary-button security-pass-scan" onClick={stopCameraScan}>
+                            <X size={16} /> Stop camera
+                        </button>
                     )}
-                    <span>Scanning is on-device; verification remains offline.</span>
+                    <span className="security-pass-hint">
+                        Scanning happens on this device; the signature is verified offline.
+                    </span>
                 </div>
-                {cameraActive && <video ref={videoRef} muted playsInline style={{ width: "100%", maxHeight: 260, objectFit: "cover", borderRadius: 10 }} />}
-                {cameraError && <span role="status">{cameraError}</span>}
-                <textarea
-                    id="signed-pass-payload"
-                    value={passText}
-                    onChange={(event) => setPassText(event.target.value)}
-                    placeholder="Paste the signed pass JSON here"
-                    rows={5}
-                    autoComplete="off"
-                    spellCheck="false"
-                    style={{ width: "100%", resize: "vertical", fontFamily: "monospace", border: "1px solid #dce3ed", borderRadius: 10, padding: "12px 13px", outline: "none", boxSizing: "border-box" }}
-                />
-                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                    <button type="submit" className="security-action-button checkin" disabled={!passText.trim()}>
+
+                {cameraActive && (
+                    <video
+                        ref={videoRef}
+                        muted
+                        playsInline
+                        className="security-pass-video"
+                    />
+                )}
+
+                {cameraError && (
+                    <div className="security-pass-result error" role="status">
+                        <span>{cameraError}</span>
+                    </div>
+                )}
+
+                <details className="security-pass-manual">
+                    <summary>Paste pass manually</summary>
+                    <label htmlFor="signed-pass-payload" className="security-pass-label">
+                        Signed pass payload
+                    </label>
+                    <textarea
+                        id="signed-pass-payload"
+                        value={passText}
+                        onChange={(event) => setPassText(event.target.value)}
+                        placeholder='Paste the signed pass JSON, e.g. {"pass": …}'
+                        rows={5}
+                        autoComplete="off"
+                        spellCheck="false"
+                        className="security-pass-textarea"
+                    />
+                </details>
+
+                <div className="security-pass-footer">
+                    <button type="submit" className="security-primary-button" disabled={!passText.trim()}>
+                        <ShieldCheck size={16} />
                         Verify pass offline
                     </button>
-                    <span role="status">{message}</span>
+                    <span className="security-pass-status" role="status">{message}</span>
                 </div>
+
                 {result && (
-                    <div role="status" aria-live="polite" className={`security-alert ${result.valid ? "success" : "error"}`}>
-                        <strong>{result.valid ? "Signature valid" : "Pass not verified"}</strong>
-                        <span>{result.valid ? `${result.pass.visitorName || "Visitor"} — ${result.pass.purpose || "Visit"}` : result.reason}</span>
+                    <div role="status" aria-live="polite" className={`security-pass-result ${result.valid ? "success" : "error"}`}>
+                        <strong>{result.valid ? "Pass verified" : "Pass not verified"}</strong>
+                        <span>
+                            {result.valid
+                                ? `${result.pass.visitorName || "Visitor"} — ${result.pass.purpose || "Visit"}`
+                                : result.reason}
+                        </span>
                     </div>
                 )}
             </form>
