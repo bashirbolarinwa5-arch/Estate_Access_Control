@@ -208,6 +208,13 @@ public class SyncCommandProcessor {
         Visitor selectedVisitor = visitor;
         Visit created = invokeDomain(() -> visitService.createVisit(resident.getId(), selectedVisitor, purpose));
         created.setPublicId(publicId);
+
+        // Keep a gate code the guard generated offline when it is still free.
+        String proposedCode = optionalText(payload, "accessCode", 12).toUpperCase(Locale.ROOT);
+        if (proposedCode.matches("[A-Z0-9]{6}") && visits.findByAccessCode(proposedCode) == null) {
+            created.setAccessCode(proposedCode);
+        }
+
         Visit saved = visits.save(created);
         return new ProcessedCommand(saved.getId(), saved.getPublicId());
     }

@@ -22,6 +22,9 @@ import {
 
 import api from "../services/api";
 import { useAuth } from "../context/useAuth";
+import { currentOwnerKey, saveLocalMutation } from "../db/offlineStore";
+import { newPublicId } from "../db/estateflowDb";
+import { generateOfflineAccessCode } from "../db/accessCode";
 
 import { useToast } from "../components/useToast";
 import BulkImportModal from "../components/BulkImportModal";
@@ -507,6 +510,72 @@ function SecurityPage() {
         try {
             setCreatingWalkIn(true);
 
+            if (!navigator.onLine) {
+                /*
+                 * Offline walk-in: queue a signed-off local visit so the guard
+                 * can keep working. The server applies it on reconnect and
+                 * notifies the resident then.
+                 */
+                const resident = residents.find(
+                    (item) => String(item.id) === String(residentId)
+                );
+                if (!resident?.publicId) {
+                    throw new Error(
+                        "This resident is not cached with a public ID. Connect and refresh the resident list first."
+                    );
+                }
+
+                const visitPublicId = newPublicId();
+                const accessCode = generateOfflineAccessCode();
+                const localVisit = {
+                    publicId: visitPublicId,
+                    visitor: {
+                        fullName: name,
+                        phoneNumber: phone,
+                    },
+                    resident: {
+                        fullName: resident.fullName,
+                        houseNumber: resident.houseNumber,
+                    },
+                    purpose,
+                    accessCode,
+                    status: "PENDING",
+                    visitDate: new Date().toISOString().slice(0, 10),
+                };
+
+                await saveLocalMutation({
+                    tableName: "visits",
+                    ownerKey: currentOwnerKey(),
+                    actorPublicId: null,
+                    estatePublicId: null,
+                    entityType: "VISIT",
+                    operation: "CREATE_WALK_IN",
+                    record: localVisit,
+                    payload: {
+                        residentPublicId: resident.publicId,
+                        purpose,
+                        accessCode,
+                        visitor: {
+                            fullName: name,
+                            phoneNumber: phone,
+                        },
+                    },
+                });
+
+                setPendingVisits((current) => [localVisit, ...current]);
+                setShowWalkInForm(false);
+                resetWalkInForm();
+
+                const offlineMessage =
+                    `Walk-in saved on this device for ${resident.fullName || "the resident"}. ` +
+                    `Access code: ${accessCode}. It syncs automatically when the connection returns, ` +
+                    "and the resident is notified then.";
+
+                setSuccess(offlineMessage);
+                showSuccess(`Walk-in saved offline — code ${accessCode}.`);
+                return;
+            }
+
             // The backend creates (or reuses) the visitor for this
             // resident and then creates the visit, so a single call
             // is enough. Registering the visitor separately would
@@ -548,6 +617,7 @@ function SecurityPage() {
 
             const message =
                 err.response?.data?.message ||
+                err.message ||
                 "Failed to create the Walk-In Visit. Please try again.";
 
             showError(message);

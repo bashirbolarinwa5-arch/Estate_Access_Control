@@ -20,22 +20,10 @@ import API from "../services/api";
 import { db, newPublicId } from "../db/estateflowDb";
 import { currentOwnerKey, getLocalRecords, saveLocalMutation } from "../db/offlineStore";
 import { createResidentPassSigningKey, signPassOffline } from "../db/passCrypto";
-
+import { generateOfflineAccessCode } from "../db/accessCode";
 import { useToast } from "../components/useToast";
 
 import "./ResidentVisitsPage.css";
-
-/*
- * Gate code generated on the device so an offline visit can be shared
- * immediately. Same alphabet and length as the server generator
- * (6 chars, A-Z/0-9); the server keeps it when it is still free.
- */
-function generateOfflineAccessCode() {
-    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    const bytes = new Uint8Array(6);
-    crypto.getRandomValues(bytes);
-    return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
-}
 
 async function mergeOfflineVisits(serverVisits) {
     const ownerKey = currentOwnerKey();
