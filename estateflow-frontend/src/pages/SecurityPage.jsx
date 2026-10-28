@@ -46,6 +46,13 @@ function SecurityPage() {
     const isAdmin = role === "ADMIN";
     const isSecurity = role === "SECURITY";
 
+    /*
+     * Access codes are the normal flow. The signed payload panel is only a
+     * fallback for a gate that has lost its connection, so it is mounted
+     * only while the browser reports being offline.
+     */
+    const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+
     // Admin security personnel
     const [securityPersonnel, setSecurityPersonnel] = useState([]);
     const [loadingSecurity, setLoadingSecurity] = useState(isAdmin);
@@ -188,6 +195,19 @@ function SecurityPage() {
             setLoadingSecurity(false);
         }
     }
+
+    useEffect(() => {
+        const onOnline = () => setIsOnline(true);
+        const onOffline = () => setIsOnline(false);
+
+        window.addEventListener("online", onOnline);
+        window.addEventListener("offline", onOffline);
+
+        return () => {
+            window.removeEventListener("online", onOnline);
+            window.removeEventListener("offline", onOffline);
+        };
+    }, []);
 
     useEffect(() => {
         let active = true;
@@ -907,7 +927,7 @@ if (isSecurity) {
                 </div>
             </section>
 
-            <PassVerificationPanel />
+            {!isOnline && <PassVerificationPanel />}
 
             <section className="security-panel security-pending-panel">
                 <div className="security-panel-header">
