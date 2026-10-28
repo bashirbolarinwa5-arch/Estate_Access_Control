@@ -363,6 +363,101 @@ const ResidentVisitsPage = () => {
         }));
     };
 
+    /*
+     * Saves a planned visit on this device. Used both when the browser
+     * reports being offline and when the server cannot be reached, so the
+     * resident gets the same result in either case.
+     */
+    const queuePlannedVisitOffline = async (reason) => {
+        const visitor = visitors.find((item) => String(item.id) === String(createForm.visitorId));
+
+        if (!visitor?.publicId) {
+            const visitorError = new Error(
+                "Open this page once while connected so your visitor list is saved on this device, then try again."
+            );
+            visitorError.userMessage = visitorError.message;
+            throw visitorError;
+        }
+
+        const validFrom = new Date(`${createForm.visitDate}T00:00:00`);
+        const expiresAt = new Date(validFrom);
+        expiresAt.setDate(expiresAt.getDate() + 1);
+        const visitPublicId = newPublicId();
+        const accessCode = generateOfflineAccessCode();
+        const pass = {
+            publicId: visitPublicId,
+            residentPublicId: passSigningContext?.residentPublicId ?? null,
+            visitorPublicId: visitor.publicId,
+            estatePublicId: passSigningContext?.estatePublicId ?? null,
+            visitorName: visitor.fullName,
+            visitorPhone: visitor.phoneNumber || "",
+            purpose: createForm.purpose.trim(),
+            visitDate: createForm.visitDate,
+            accessCode,
+            validFrom: validFrom.toISOString(),
+            expiresAt: expiresAt.toISOString(),
+        };
+
+        let signedPass = null;
+
+        if (passSigningContext) {
+            try {
+                signedPass = await signPassOffline({
+                    keyId: passSigningContext.keyId,
+                    residentPublicId: passSigningContext.residentPublicId,
+                    estatePublicId: passSigningContext.estatePublicId,
+                    pass,
+                });
+            } catch (signingError) {
+                console.warn("Planned visit saved without an offline signature:", signingError.message);
+            }
+        }
+
+        const ownerKey = currentOwnerKey();
+
+        await saveLocalMutation({
+            tableName: "visits",
+            ownerKey,
+            actorPublicId: passSigningContext?.residentPublicId ?? null,
+            estatePublicId: passSigningContext?.estatePublicId ?? null,
+            entityType: "VISIT",
+            operation: "CREATE_PLANNED",
+            record: { ...pass, signedPass, status: "OFFLINE_PENDING" },
+            payload: {
+                visitorPublicId: visitor.publicId,
+                purpose: createForm.purpose.trim(),
+                visitDate: createForm.visitDate,
+                accessCode,
+            },
+        });
+
+        if (signedPass) {
+            setOfflineSignedPass(JSON.stringify(signedPass));
+        }
+
+        setVisits((current) => [...current, {
+            ...pass,
+            publicId: visitPublicId,
+            visitor,
+            status: "OFFLINE_PENDING",
+        }]);
+        setShowCreateModal(false);
+        setCreateForm({
+            visitorId: "",
+            purpose: "",
+            visitDate: "",
+        });
+
+        const message = reason === "unreachable"
+            ? `The gate server could not be reached, so this visit is saved on your device. Access code: ${accessCode}. It syncs automatically.`
+            : `Offline visit pass created. Access code: ${accessCode}. It syncs automatically when you reconnect.`;
+
+        setSuccess(message);
+        showSuccess(reason === "unreachable"
+            ? `Server unreachable — visit saved on this device. Code ${accessCode}.`
+            : `Offline visit created — code ${accessCode}.`);
+    };
+
     const createPlannedVisit = async (event) => {
         event.preventDefault();
 
@@ -397,59 +492,7 @@ const ResidentVisitsPage = () => {
             setCreatingVisit(true);
 
             if (!navigator.onLine) {
-                if (!passSigningContext) throw new Error("Connect once to set up offline pass signing on this device.");
-                const visitor = visitors.find((item) => String(item.id) === String(createForm.visitorId));
-                if (!visitor?.publicId) throw new Error("This visitor is not cached with a public ID. Connect and refresh your visitor list first.");
-                const validFrom = new Date(`${createForm.visitDate}T00:00:00`);
-                const expiresAt = new Date(validFrom);
-                expiresAt.setDate(expiresAt.getDate() + 1);
-                const visitPublicId = newPublicId();
-                const accessCode = generateOfflineAccessCode();
-                const pass = {
-                    publicId: visitPublicId,
-                    residentPublicId: passSigningContext.residentPublicId,
-                    visitorPublicId: visitor.publicId,
-                    estatePublicId: passSigningContext.estatePublicId,
-                    visitorName: visitor.fullName,
-                    visitorPhone: visitor.phoneNumber || "",
-                    purpose: createForm.purpose.trim(),
-                    visitDate: createForm.visitDate,
-                    accessCode,
-                    validFrom: validFrom.toISOString(),
-                    expiresAt: expiresAt.toISOString(),
-                };
-                const signedPass = await signPassOffline({
-                    keyId: passSigningContext.keyId,
-                    residentPublicId: passSigningContext.residentPublicId,
-                    estatePublicId: passSigningContext.estatePublicId,
-                    pass,
-                });
-                const ownerKey = currentOwnerKey();
-                await saveLocalMutation({
-                    tableName: "visits",
-                    ownerKey,
-                    actorPublicId: passSigningContext.residentPublicId,
-                    estatePublicId: passSigningContext.estatePublicId,
-                    entityType: "VISIT",
-                    operation: "CREATE_PLANNED",
-                    record: { ...pass, signedPass, status: "OFFLINE_PENDING" },
-                    payload: {
-                        visitorPublicId: visitor.publicId,
-                        purpose: createForm.purpose.trim(),
-                        visitDate: createForm.visitDate,
-                        accessCode,
-                    },
-                });
-                setOfflineSignedPass(JSON.stringify(signedPass));
-                setVisits((current) => [...current, {
-                    ...pass,
-                    publicId: visitPublicId,
-                    visitor,
-                    status: "OFFLINE_PENDING",
-                }]);
-                setShowCreateModal(false);
-                setSuccess(`Offline visit pass created. Access code: ${accessCode}. Share the signed payload with the gate; it syncs automatically when you reconnect.`);
-                showSuccess(`Offline visit created — code ${accessCode}.`);
+                await queuePlannedVisitOffline("offline");
                 return;
             }
 
@@ -458,41 +501,58 @@ const ResidentVisitsPage = () => {
              * flush the outbox first and look the visitor up again instead
              * of sending NaN to the server.
              */
-            let visitorServerId = Number(createForm.visitorId);
+            let createdVisit;
 
-            if (!Number.isFinite(visitorServerId) || visitorServerId <= 0) {
-                const pendingVisitor = visitors.find((item) => String(item.id) === String(createForm.visitorId));
+            try {
+                let visitorServerId = Number(createForm.visitorId);
 
-                await flushOutbox();
+                if (!Number.isFinite(visitorServerId) || visitorServerId <= 0) {
+                    const pendingVisitor = visitors.find((item) => String(item.id) === String(createForm.visitorId));
 
-                const refreshed = await API.get("/visitor/me");
-                const refreshedVisitors = refreshed.data?.data ?? [];
-                const syncedVisitor = refreshedVisitors.find(
-                    (item) => pendingVisitor?.publicId && item.publicId === pendingVisitor.publicId
+                    await flushOutbox();
+
+                    const refreshed = await API.get("/visitor/me");
+                    const refreshedVisitors = refreshed.data?.data ?? [];
+                    const syncedVisitor = refreshedVisitors.find(
+                        (item) => pendingVisitor?.publicId && item.publicId === pendingVisitor.publicId
+                    );
+
+                    if (!syncedVisitor) {
+                        const syncError = new Error("That visitor is still syncing. Please try again in a moment.");
+                        syncError.userMessage = syncError.message;
+                        throw syncError;
+                    }
+
+                    visitorServerId = Number(syncedVisitor.id);
+                }
+
+                const response = await API.post(
+                    "/visit/planned",
+                    null,
+                    {
+                        params: {
+                            visitorId: visitorServerId,
+                            purpose: createForm.purpose.trim(),
+                            visitDate: createForm.visitDate,
+                        },
+                    }
                 );
 
-                if (!syncedVisitor) {
-                    const syncError = new Error("That visitor is still syncing. Please try again in a moment.");
-                    syncError.userMessage = syncError.message;
-                    throw syncError;
+                createdVisit = response.data?.data;
+            } catch (requestError) {
+                /*
+                 * navigator.onLine can still be true on a captive Wi-Fi
+                 * network or when the server is down. In that case a
+                 * rejected request without a response means "no network",
+                 * so queue the visit exactly like a real offline create.
+                 */
+                if (requestError.response || requestError.userMessage) {
+                    throw requestError;
                 }
 
-                visitorServerId = Number(syncedVisitor.id);
+                await queuePlannedVisitOffline("unreachable");
+                return;
             }
-
-            const response = await API.post(
-                "/visit/planned",
-                null,
-                {
-                    params: {
-                        visitorId: visitorServerId,
-                        purpose: createForm.purpose.trim(),
-                        visitDate: createForm.visitDate,
-                    },
-                }
-            );
-
-            const createdVisit = response.data?.data;
 
             if (passSigningContext && createdVisit?.publicId && createdVisit?.visitor?.publicId) {
                 try {
@@ -547,6 +607,7 @@ const ResidentVisitsPage = () => {
             const message =
                 err.response?.data?.message ||
                 err.userMessage ||
+                err.message ||
                 "Failed to create planned visit.";
 
             showError(message);

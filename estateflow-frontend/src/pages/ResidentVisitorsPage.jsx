@@ -227,16 +227,18 @@ function ResidentVisitorsPage() {
             setSubmitting(true);
 
             /*
-             * Offline: queue the registration in the outbox and show it
-             * immediately. The sync engine creates it on the server as soon
-             * as the device reconnects, keeping the same public ID so it
-             * can be used for an offline visit right away.
+             * Queues the registration in the outbox and shows it straight
+             * away. The sync engine creates it on the server as soon as the
+             * device reconnects, keeping the same public ID so it can be used
+             * for an offline visit right away.
              */
-            if (!navigator.onLine) {
+            const queueOfflineRegistration = async (reason) => {
                 const ownerKey = currentOwnerKey();
 
                 if (!ownerKey) {
-                    throw new Error("Sign in once while online before registering visitors offline.");
+                    const authError = new Error("Sign in once while online before registering visitors offline.");
+                    authError.userMessage = authError.message;
+                    throw authError;
                 }
 
                 const storedAuth = JSON.parse(localStorage.getItem("estateflow_auth") || "null");
@@ -271,10 +273,16 @@ function ResidentVisitorsPage() {
 
                 setShowModal(false);
 
-                const message = `Visitor registered offline. It syncs automatically when you reconnect.`;
+                const message = reason === "unreachable"
+                    ? "The server could not be reached, so this visitor is saved on your device. It syncs automatically."
+                    : "Visitor registered offline. It syncs automatically when you reconnect.";
 
                 setSuccessMessage(message);
                 showSuccess(message);
+            };
+
+            if (!navigator.onLine) {
+                await queueOfflineRegistration("offline");
                 return;
             }
 
@@ -282,10 +290,25 @@ function ResidentVisitorsPage() {
              * The backend will identify the resident from
              * the authenticated JWT.
              */
-            await API.post("/visitor/me", {
-                fullName,
-                phoneNumber,
-            });
+            try {
+                await API.post("/visitor/me", {
+                    fullName,
+                    phoneNumber,
+                });
+            } catch (requestError) {
+                /*
+                 * navigator.onLine can still be true when Wi-Fi has no
+                 * internet or the server is down. A rejected request with
+                 * no response means nothing was created, so save the
+                 * visitor locally instead of losing it.
+                 */
+                if (requestError.response) {
+                    throw requestError;
+                }
+
+                await queueOfflineRegistration("unreachable");
+                return;
+            }
 
             setSuccessMessage(
                 "Visitor registered successfully."
@@ -314,6 +337,8 @@ function ResidentVisitorsPage() {
 
             const message =
                 err.response?.data?.message ||
+                err.userMessage ||
+                err.message ||
                 "Failed to register visitor. Please try again.";
 
             showError(message);
