@@ -30,6 +30,7 @@ public class SyncCommandProcessor {
     private final VisitorService visitorService;
     private final ActivityLogService activityLogService;
     private final ActivityLogRepository activityLogs;
+    private final GateEntryRepository gateEntries;
 
     public SyncCommandProcessor(
             ResidentRepository residents,
@@ -41,7 +42,8 @@ public class SyncCommandProcessor {
             VisitService visitService,
             VisitorService visitorService,
             ActivityLogService activityLogService,
-            ActivityLogRepository activityLogs) {
+            ActivityLogRepository activityLogs,
+            GateEntryRepository gateEntries) {
         this.residents = residents;
         this.visitors = visitors;
         this.visits = visits;
@@ -52,6 +54,7 @@ public class SyncCommandProcessor {
         this.visitorService = visitorService;
         this.activityLogService = activityLogService;
         this.activityLogs = activityLogs;
+        this.gateEntries = gateEntries;
     }
 
     public ProcessedCommand process(User actor, SyncCommandDto command, UUID entityPublicId) {
@@ -74,6 +77,7 @@ public class SyncCommandProcessor {
             case "VISIT.CHECK_IN" -> checkIn(actor, entityPublicId);
             case "VISIT.CHECK_OUT" -> checkOut(actor, entityPublicId);
             case "SECURITY_LOG.APPEND" -> appendSecurityLog(actor, entityPublicId, payload);
+            case "GATE_ENTRY.CREATE" -> recordGateEntry(actor, entityPublicId, payload);
             default -> throw rejected("This offline operation is not supported.");
         };
     }
@@ -216,6 +220,7 @@ public class SyncCommandProcessor {
         }
 
         Visit saved = visits.save(created);
+        reconcileGateEntries(saved);
         return new ProcessedCommand(saved.getId(), saved.getPublicId());
     }
 
@@ -254,6 +259,7 @@ public class SyncCommandProcessor {
         }
 
         Visit saved = visits.save(created);
+        reconcileGateEntries(saved);
         return new ProcessedCommand(saved.getId(), saved.getPublicId());
     }
 
@@ -275,6 +281,132 @@ public class SyncCommandProcessor {
                 ? visitService.approveVisit(visit.getId(), "ADMIN")
                 : visitService.rejectVisit(visit.getId(), "ADMIN"));
         return new ProcessedCommand(saved.getId(), saved.getPublicId());
+    }
+
+    /**
+     * Records a gate check-in that a guard performed while offline.
+     *
+     * The guard device only knows the 6-character access code. If the visit
+     * already exists the visitor is checked in immediately; otherwise the
+     * entry is stored for admin review and reconciled when the resident's
+     * visit reaches the server. Either way the outbox item is acknowledged,
+     * so the queue never blocks or retries forever.
+     */
+    private ProcessedCommand recordGateEntry(User actor, UUID publicId, JsonNode payload) {
+        requireOneRole(actor, Role.ROLE_ADMIN, Role.ROLE_SECURITY);
+        Estate estate = requireEstate(actor);
+
+        GateEntry existing = gateEntries.findByPublicId(publicId).orElse(null);
+        if (existing != null) {
+            return new ProcessedCommand(existing.getId(), existing.getPublicId());
+        }
+
+        String code = requiredText(payload, "accessCode", 12).toUpperCase(Locale.ROOT);
+        if (!code.matches("[A-Z0-9]{6}")) {
+            throw rejected("Access code must be 6 letters or digits.");
+        }
+
+        GateEntry entry = new GateEntry();
+        entry.setPublicId(publicId);
+        entry.setEstate(estate);
+        entry.setGuardUser(actor);
+        entry.setAccessCode(code);
+        entry.setOccurredAt(optionalTimestamp(payload, "occurredAt"));
+        entry.setReceivedAt(LocalDateTime.now());
+
+        Visit visit = visits.findByAccessCode(code);
+
+        if (visit == null || visit.getEstate() == null
+                || !estate.getId().equals(visit.getEstate().getId())) {
+            entry.setStatus(GateEntryStatus.NEEDS_REVIEW);
+            entry.setNote("No visit on this estate matches this access code yet.");
+        } else if (visit.getStatus() == VisitorStatus.APPROVED) {
+            try {
+                Visit checkedIn = visitService.checkInVisitor(code);
+                entry.setVisit(checkedIn);
+                entry.setStatus(GateEntryStatus.MATCHED);
+                entry.setNote("Checked in from an offline gate entry.");
+            } catch (RuntimeException checkInFailure) {
+                entry.setVisit(visit);
+                entry.setStatus(GateEntryStatus.NEEDS_REVIEW);
+                entry.setNote("Check-in could not be applied: " + shortMessage(checkInFailure));
+            }
+        } else if (visit.getStatus() == VisitorStatus.CHECKED_IN) {
+            entry.setVisit(visit);
+            entry.setStatus(GateEntryStatus.MATCHED);
+            entry.setNote("Visitor was already checked in.");
+        } else {
+            entry.setVisit(visit);
+            entry.setStatus(GateEntryStatus.NEEDS_REVIEW);
+            entry.setNote("Visit status is " + visit.getStatus().name() + "; gate entry needs review.");
+        }
+
+        GateEntry saved = gateEntries.save(entry);
+        activityLogService.log(
+                actor.getRole().name().replace("ROLE_", ""),
+                saved.getStatus() == GateEntryStatus.MATCHED
+                        ? "OFFLINE_GATE_ENTRY_MATCHED"
+                        : "OFFLINE_GATE_ENTRY_NEEDS_REVIEW",
+                "Offline gate entry " + code + " recorded (" + saved.getStatus().name() + ")");
+
+        return new ProcessedCommand(saved.getId(), saved.getPublicId());
+    }
+
+    /**
+     * A visit that syncs later can satisfy gate entries that arrived first
+     * (the resident created the visit offline, the guard typed the code).
+     */
+    private void reconcileGateEntries(Visit visit) {
+        if (visit == null || visit.getEstate() == null || visit.getAccessCode() == null) return;
+
+        var waiting = gateEntries.findByEstateAndAccessCodeAndStatus(
+                visit.getEstate(), visit.getAccessCode(), GateEntryStatus.NEEDS_REVIEW);
+        if (waiting.isEmpty()) return;
+
+        Visit current = visit;
+        boolean checkedIn = false;
+
+        if (current.getStatus() == VisitorStatus.APPROVED) {
+            current.setStatus(VisitorStatus.CHECKED_IN);
+            current.setCheckInTime(LocalDateTime.now());
+            current = visits.save(current);
+            checkedIn = true;
+            activityLogService.log(
+                    "SYNC",
+                    "VISITOR_CHECKED_IN",
+                    "Visitor " + current.getVisitor().getFullName()
+                            + " checked in from an offline gate entry");
+        }
+
+        for (GateEntry entry : waiting) {
+            entry.setVisit(current);
+            entry.setStatus(checkedIn ? GateEntryStatus.MATCHED : GateEntryStatus.NEEDS_REVIEW);
+            if (checkedIn) {
+                entry.setNote("Matched and checked in when the visit synced.");
+            }
+            gateEntries.save(entry);
+        }
+    }
+
+    private static String shortMessage(RuntimeException failure) {
+        String message = failure.getMessage();
+        return message == null || message.isBlank() ? "unknown reason" : message;
+    }
+
+    private static LocalDateTime optionalTimestamp(JsonNode payload, String field) {
+        String raw = optionalText(payload, field, 40);
+        if (raw.isBlank()) return LocalDateTime.now();
+        try {
+            return LocalDateTime.parse(raw);
+        } catch (RuntimeException ignored) {
+            try {
+                return java.time.Instant.parse(raw)
+                        .atZone(java.time.ZoneId.systemDefault())
+                        .toLocalDateTime();
+            } catch (RuntimeException unparseable) {
+                return LocalDateTime.now();
+            }
+        }
     }
 
     private ProcessedCommand checkIn(User actor, UUID publicId) {

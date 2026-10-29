@@ -253,6 +253,9 @@ public class SecurityConfig {
                         )
                         .hasAnyRole("ADMIN", "SECURITY")
 
+                        .requestMatchers("/api/service/gate-entries/**")
+                        .hasRole("ADMIN")
+
                         // Super Admin (platform owner) routes.
                         //
                         // Every other matcher above names specific estate

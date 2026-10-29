@@ -22,7 +22,7 @@ import {
 
 import api from "../services/api";
 import { useAuth } from "../context/useAuth";
-import { currentOwnerKey, saveLocalMutation } from "../db/offlineStore";
+import { currentOwnerKey, saveGateEntry, saveLocalMutation } from "../db/offlineStore";
 import { newPublicId } from "../db/estateflowDb";
 import { generateOfflineAccessCode } from "../db/accessCode";
 
@@ -30,6 +30,8 @@ import { useToast } from "../components/useToast";
 import BulkImportModal from "../components/BulkImportModal";
 import TempPasswordModal from "../components/TempPasswordModal";
 import PassVerificationPanel from "../components/PassVerificationPanel";
+
+const ACCESS_CODE_PATTERN = /^[A-Z0-9]{6}$/;
 
 function getResponseData(response) {
     return response?.data?.data ?? response?.data;
@@ -153,6 +155,13 @@ function SecurityPage() {
     const [accessCode, setAccessCode] = useState("");
     const [processingAccess, setProcessingAccess] = useState(false);
     const [checkInResult, setCheckInResult] = useState(null);
+    // A gate entry accepted while the server could not be reached.
+    const [gateQueueResult, setGateQueueResult] = useState(null);
+
+    // Admin review of offline gate entries that never matched a visit.
+    const [gateEntries, setGateEntries] = useState([]);
+    const [loadingGateEntries, setLoadingGateEntries] = useState(false);
+    const [dismissingGateEntryId, setDismissingGateEntryId] = useState(null);
 
     // Common feedback
     const [error, setError] = useState("");
@@ -251,6 +260,47 @@ function SecurityPage() {
         }
     }
 
+    // ---------------------------------------------------------
+    // ADMIN: OFFLINE GATE ENTRIES WAITING FOR REVIEW
+    // ---------------------------------------------------------
+
+    async function loadGateEntries() {
+        if (!isAdmin) return;
+
+        try {
+            setLoadingGateEntries(true);
+            const response = await api.get("/api/service/gate-entries", {
+                params: { status: "NEEDS_REVIEW" },
+            });
+            const data = getResponseData(response);
+            setGateEntries(Array.isArray(data) ? data : []);
+        } catch (err) {
+            console.error("Failed to load offline gate entries:", err);
+        } finally {
+            setLoadingGateEntries(false);
+        }
+    }
+
+    async function dismissGateEntry(publicId) {
+        if (!publicId) return;
+
+        try {
+            setDismissingGateEntryId(publicId);
+            await api.post(`/api/service/gate-entries/${publicId}/dismiss`);
+            setGateEntries((current) =>
+                current.filter((entry) => entry.publicId !== publicId)
+            );
+            showSuccess("Gate entry dismissed.");
+        } catch (err) {
+            const message =
+                err.response?.data?.message ||
+                "Could not dismiss this gate entry.";
+            showError(message);
+        } finally {
+            setDismissingGateEntryId(null);
+        }
+    }
+
     useEffect(() => {
         let active = true;
 
@@ -277,6 +327,20 @@ function SecurityPage() {
                     if (active) {
                         setLoadingSecurity(false);
                     }
+                }
+
+                try {
+                    const gateResponse = await api.get("/api/service/gate-entries", {
+                        params: { status: "NEEDS_REVIEW" },
+                    });
+                    const gateData = getResponseData(gateResponse);
+
+                    if (active) {
+                        setGateEntries(Array.isArray(gateData) ? gateData : []);
+                    }
+                } catch (err) {
+                    /* Older deployments have no gate-entry endpoint yet. */
+                    console.error("Failed to load offline gate entries:", err);
                 }
             }
 
@@ -693,12 +757,53 @@ function SecurityPage() {
     // SECURITY: CHECK-IN
     // ---------------------------------------------------------
 
+    /*
+     * Option C: a gate with no connection still opens.
+     *
+     * The guard only knows the 6-character code, so the entry is written to
+     * IndexedDB plus the outbox and the UI confirms immediately. The server
+     * later matches the code to the visit (check-in) or flags it for admin
+     * review. Nothing here touches the network while offline.
+     */
+    async function queueGateEntry(code) {
+        const ownerKey = currentOwnerKey();
+
+        if (!ownerKey) {
+            throw new Error("Sign in again before opening the gate offline.");
+        }
+
+        const entry = await saveGateEntry({
+            ownerKey,
+            accessCode: code,
+            occurredAt: new Date().toISOString(),
+        });
+
+        setAccessCode("");
+        setCheckInResult(null);
+        setSuccess("");
+        setError("");
+        setGateQueueResult({
+            accessCode: entry.accessCode,
+            occurredAt: entry.occurredAt,
+        });
+        showSuccess(`Gate opened — code ${entry.accessCode} saved offline.`);
+
+        return entry;
+    }
+
     async function handleCheckIn() {
-        const code = accessCode.trim();
+        const code = accessCode.trim().toUpperCase();
 
         if (!code) {
             showError("Please enter an access code.");
             setError("Please enter an access code.");
+            return;
+        }
+
+        if (!ACCESS_CODE_PATTERN.test(code)) {
+            const message = "Access codes are 6 letters or numbers.";
+            showError(message);
+            setError(message);
             return;
         }
 
@@ -707,6 +812,13 @@ function SecurityPage() {
             setError("");
             setSuccess("");
             setCheckInResult(null);
+            setGateQueueResult(null);
+
+            /* Offline: open the gate and reconcile when the batch syncs. */
+            if (!isOnline) {
+                await queueGateEntry(code);
+                return;
+            }
 
             const response = await api.post(
                 `/security/check-in/${encodeURIComponent(code)}`
@@ -722,6 +834,27 @@ function SecurityPage() {
             await loadResidents();
         } catch (err) {
             console.error("Check-in failed:", err);
+
+            /*
+             * No response at all means the request never reached the server
+             * (dead network, captive portal, timeout). That is the same
+             * situation as being offline, so fall back to the local gate log
+             * instead of turning the visitor away.
+             */
+            if (!err.response) {
+                setIsOnline(false);
+                try {
+                    await queueGateEntry(code);
+                    return;
+                } catch (queueError) {
+                    const message =
+                        queueError.message ||
+                        "The gate entry could not be saved on this device.";
+                    showError(message);
+                    setError(message);
+                    return;
+                }
+            }
 
             const message =
                 err.response?.data?.message ||
@@ -803,6 +936,7 @@ if (isSecurity) {
                             setSuccess("");
                             setAccessCode("");
                             setCheckInResult(null);
+                            setGateQueueResult(null);
                             loadResidents();
                         }}
                         title="Refresh"
@@ -885,6 +1019,32 @@ if (isSecurity) {
                 </section>
             )}
 
+            {gateQueueResult && (
+                <section className="security-checkin-result security-gate-pending">
+                    <div className="security-checkin-result-header">
+                        <div className="security-checkin-result-icon">
+                            <Check size={22} />
+                        </div>
+                        <div>
+                            <h2>Gate opened — saved offline</h2>
+                            <p>
+                                The entry is stored on this device. It is matched to the
+                                visit automatically as soon as the connection returns.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="security-checkin-details">
+                        <Detail label="Access Code" value={gateQueueResult.accessCode} />
+                        <Detail
+                            label="Gate Opened"
+                            value={new Date(gateQueueResult.occurredAt).toLocaleString()}
+                        />
+                        <Detail label="Status" value="PENDING SYNC" />
+                    </div>
+                </section>
+            )}
+
             <div className="security-stat-grid">
                 <SecurityStatCard
                     icon={<Shield size={21} />}
@@ -931,16 +1091,27 @@ if (isSecurity) {
                         <label>Visitor Access Code</label>
                         <input
                             value={accessCode}
-                            onChange={(event) => setAccessCode(event.target.value)}
+                            onChange={(event) => setAccessCode(
+                                event.target.value
+                                    .toUpperCase()
+                                    .replace(/[^A-Z0-9]/g, "")
+                                    .slice(0, 6)
+                            )}
                             onKeyDown={(event) => {
                                 if (event.key === "Enter") handleCheckIn();
                             }}
-                            placeholder="Enter access code"
+                            placeholder="6-character access code"
+                            maxLength={6}
+                            autoCapitalize="characters"
+                            autoComplete="off"
+                            spellCheck={false}
                             disabled={processingAccess}
                         />
                         <span>
-                                The visitor must have an approved visit before check-in.
-                            </span>
+                            {isOnline
+                                ? "Checks the approved visit and checks the visitor in."
+                                : "No connection — the gate opens and the code is matched to the visit after sync."}
+                        </span>
                     </div>
 
                     <div className="security-access-actions">
@@ -1461,6 +1632,75 @@ return (
             />
         </div>
 
+        {(loadingGateEntries || gateEntries.length > 0) && (
+            <section className="security-panel security-gate-review-panel">
+                <div className="security-panel-header">
+                    <div>
+                        <h2>Gate Entries Needing Review</h2>
+                        <p>
+                            Access codes used at the gate offline that no visit matched yet.
+                        </p>
+                    </div>
+
+                    <button
+                        type="button"
+                        className="security-refresh-button"
+                        onClick={loadGateEntries}
+                        disabled={loadingGateEntries}
+                        title="Refresh gate entries"
+                    >
+                        <RefreshCw
+                            size={16}
+                            className={loadingGateEntries ? "security-small-spinner" : ""}
+                        />
+                    </button>
+                </div>
+
+                {loadingGateEntries ? (
+                    <div className="security-loading">
+                        <div className="security-spinner" />
+                        <span>Loading gate entries...</span>
+                    </div>
+                ) : (
+                    <div className="security-gate-list">
+                        {gateEntries.map((entry) => (
+                            <div className="security-gate-item" key={entry.publicId}>
+                                <div className="security-gate-code">
+                                    {entry.accessCode || "—"}
+                                </div>
+
+                                <div className="security-gate-meta">
+                                    <strong>
+                                        {entry.visitorName || "No matching visit"}
+                                    </strong>
+                                    <span>
+                                        {entry.occurredAt
+                                            ? new Date(entry.occurredAt).toLocaleString()
+                                            : "Time unknown"}
+                                    </span>
+                                    <span className="security-gate-note">
+                                        {entry.note || "Awaiting reconciliation."}
+                                    </span>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    className="security-table-button edit"
+                                    onClick={() => dismissGateEntry(entry.publicId)}
+                                    disabled={dismissingGateEntryId === entry.publicId}
+                                >
+                                    {dismissingGateEntryId === entry.publicId
+                                        ? <RefreshCw size={14} className="security-small-spinner" />
+                                        : <Ban size={14} />}
+                                    Dismiss
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </section>
+        )}
+
         <section className="security-panel security-personnel-panel">
             <div className="security-panel-header">
                 <div>
@@ -1468,7 +1708,6 @@ return (
                     <p>Security staff registered in EstateFlow.</p>
                 </div>
             </div>
-
             {loadingSecurity ? (
                 <div className="security-loading">
                     <div className="security-spinner" />
@@ -1874,6 +2113,38 @@ const securityStyles = `
     font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
 }
 .security-checkin-detail strong { display: block; color: #26334a; font-size: 14px; overflow-wrap: anywhere; }
+.security-gate-pending .security-checkin-result-header { background: #f0fdf4; }
+.security-gate-pending .security-checkin-result-header h2 { color: #15803d; }
+.security-gate-list { display: flex; flex-direction: column; gap: 12px; padding: 18px 20px 22px; }
+.security-gate-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    min-width: 0;
+    padding: 15px 17px;
+    background: #fbfcfe;
+    border: 1px solid #e6ecf5;
+    border-radius: 14px;
+}
+.security-gate-code {
+    flex-shrink: 0;
+    padding: 9px 12px;
+    border-radius: 10px;
+    background: #eef2ff;
+    color: #3730a3;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+}
+.security-gate-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.security-gate-meta strong {
+    color: #26334a; font-size: 14px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.security-gate-meta span { color: #8a99b0; font-size: 12px; }
+.security-gate-note { color: #64748b; font-size: 12px; overflow-wrap: anywhere; }
+.security-gate-item > button { flex-shrink: 0; }
 .security-stat-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -2117,6 +2388,10 @@ const securityStyles = `
     .security-checkin-result-header h2 { font-size: 16px; }
     .security-checkin-details { grid-template-columns: 1fr; }
     .security-checkin-detail { padding: 15px 19px; border-right: none !important; }
+    .security-gate-list { padding: 16px; }
+    .security-gate-item { flex-wrap: wrap; gap: 12px; }
+    .security-gate-meta { flex: 1 1 100%; }
+    .security-gate-item > button { width: 100%; justify-content: center; }
 }
 `;
 

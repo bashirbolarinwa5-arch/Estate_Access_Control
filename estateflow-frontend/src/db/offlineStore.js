@@ -9,6 +9,7 @@ const ENTITY_TABLES = new Set([
     "security",
     "securityLogs",
     "passes",
+    "gateEntries",
 ]);
 
 function now() {
@@ -186,6 +187,8 @@ export async function saveLocalMutation({
         actorPublicId,
         status: record.status || null,
         visitDate: record.visitDate || null,
+        ...(record.accessCode ? { accessCode: record.accessCode } : {}),
+        ...(record.occurredAt ? { occurredAt: record.occurredAt } : {}),
         createdAt: record.createdAt || updatedAt,
         updatedAt,
         syncStatus: "PENDING",
@@ -277,6 +280,50 @@ export async function saveVisitor({
     return record;
 }
 
+/*
+ * Offline gate check-in.
+ *
+ * The guard types the 6-character code and the gate opens straight away. The
+ * entry is written to IndexedDB and the outbox in one step, so the UI never
+ * waits on the network. The server matches the code to a visit when the batch
+ * finally reaches it.
+ */
+export async function saveGateEntry({
+    ownerKey,
+    accessCode,
+    occurredAt = new Date().toISOString(),
+    actorPublicId = null,
+    estatePublicId = null,
+}) {
+    requireOwnerKey(ownerKey);
+
+    const code = String(accessCode || "").trim().toUpperCase();
+    if (!/^[A-Z0-9]{6}$/.test(code)) {
+        throw new Error("Access codes are 6 letters or numbers.");
+    }
+
+    const record = {
+        publicId: newPublicId(),
+        accessCode: code,
+        status: "PENDING_SYNC",
+        occurredAt,
+        estatePublicId,
+    };
+
+    await saveLocalMutation({
+        tableName: "gateEntries",
+        ownerKey,
+        actorPublicId,
+        estatePublicId,
+        entityType: "GATE_ENTRY",
+        operation: "CREATE",
+        record,
+        payload: { accessCode: code, occurredAt },
+    });
+
+    return record;
+}
+
 export async function getQueuedMutations(ownerKey, limit = 50) {
     requireOwnerKey(ownerKey);
     const records = await db.outbox
@@ -334,6 +381,7 @@ export async function acknowledgeMutation(mutationId, receipt) {
         SECURITY: "security",
         SECURITY_LOG: "securityLogs",
         PASS: "passes",
+        GATE_ENTRY: "gateEntries",
     }[mutation.entityType];
 
     if (tableName && ENTITY_TABLES.has(tableName)) {

@@ -33,6 +33,15 @@ db.version(2)
         }
     });
 
+/*
+ * Offline gate check-ins. A guard at a gate with no connection only knows the
+ * 6-character access code, so the entry is stored here and reconciled with a
+ * real visit by the server after the outbox drains.
+ */
+db.version(3).stores({
+    gateEntries: "++localId,&publicId,ownerKey,estatePublicId,accessCode,status,syncStatus,occurredAt,updatedAt",
+});
+
 export function newPublicId() {
     if (typeof crypto.randomUUID === "function") {
         return crypto.randomUUID();
