@@ -63,8 +63,9 @@ self.addEventListener("push", (event) => {
         body: data.body || "A visitor is waiting at the estate gate.",
         icon: "/icons/icon-192.png",
         badge: "/icons/icon-192.png",
-        data: { url: data.url || "/resident/visits" },
-        tag: "estateflow-visitor-request",
+        data: { url: data.url || "/resident/visits", tag: data.tag || "estateflow-visitor-request" },
+        tag: data.tag || "estateflow-visitor-request",
+        renotify: true,
     }));
 });
 

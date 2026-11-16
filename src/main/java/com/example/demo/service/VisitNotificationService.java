@@ -2,6 +2,7 @@ package com.example.demo.service;
 
 import com.example.demo.entity.*;
 import com.example.demo.repository.PushSubscriptionRepository;
+import com.example.demo.repository.UserRepository;
 import com.example.demo.repository.VisitApprovalLinkRepository;
 import com.example.demo.repository.VisitNotificationRepository;
 import com.example.demo.response.PushSubscriptionRequest;
@@ -29,6 +30,7 @@ import java.security.Security;
 import java.security.spec.InvalidKeySpecException;
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.HexFormat;
@@ -40,6 +42,7 @@ public class VisitNotificationService {
     private final VisitNotificationRepository notifications;
     private final VisitApprovalLinkRepository links;
     private final ActivityLogService activityLogService;
+    private final UserRepository users;
     private final String vapidPublicKey;
     private final String vapidPrivateKey;
     private final String vapidSubject;
@@ -54,6 +57,7 @@ public class VisitNotificationService {
             VisitNotificationRepository notifications,
             VisitApprovalLinkRepository links,
             ActivityLogService activityLogService,
+            UserRepository users,
             @Value("${app.push.public-key:}") String vapidPublicKey,
             @Value("${app.push.private-key:}") String vapidPrivateKey,
             @Value("${app.push.subject:mailto:support@estateflow.ng}") String vapidSubject,
@@ -66,6 +70,7 @@ public class VisitNotificationService {
         this.notifications = notifications;
         this.links = links;
         this.activityLogService = activityLogService;
+        this.users = users;
         this.vapidPublicKey = vapidPublicKey;
         this.vapidPrivateKey = vapidPrivateKey;
         this.vapidSubject = vapidSubject;
@@ -120,7 +125,38 @@ public class VisitNotificationService {
         notifications.save(delivery);
     }
 
-    private void sendPush(PushSubscription subscription, String message) throws Exception {
+    /**
+     * Notifies the estate's admins when a guard opened the gate offline and the
+     * access code could not be matched to any visit. Sent through the same
+     * self-hosted Web Push channel as visit notifications.
+     */
+    public void notifyGateEntryNeedsReview(Estate estate, String accessCode, LocalDateTime occurredAt, String note) {
+        if (estate == null || accessCode == null || accessCode.isBlank()) return;
+
+        List<User> reviewers = users.findByEstateAndRoleIn(estate, List.of(Role.ROLE_ADMIN));
+        if (reviewers.isEmpty()) return;
+
+        String estateLabel = estate.getEstateName() == null ? "an estate" : estate.getEstateName();
+        String occurredLabel = occurredAt == null ? "Unknown time" : occurredAt.toString();
+        String body = "Gate entry from " + estateLabel + " needs review: access code "
+                + accessCode + " did not match any approved visit (gate opened at " + occurredLabel + ").";
+
+        for (User reviewer : reviewers) {
+            if (reviewer == null) continue;
+            for (PushSubscription subscription : subscriptions.findByUser(reviewer)) {
+                if (subscription == null) continue;
+                try {
+                    sendPush(subscription, body, "/security", "estateflow-gate-entry-needs-review");
+                } catch (Exception failure) {
+                    if (failure.getMessage() != null && failure.getMessage().contains("410")) {
+                        subscriptions.delete(subscription);
+                    }
+                }
+            }
+        }
+    }
+
+    private void sendPush(PushSubscription subscription, String message, String url, String tag) throws Exception {
         if (vapidPublicKey.isBlank() || vapidPrivateKey.isBlank()) return;
         ECNamedCurveParameterSpec curve = ECNamedCurveTable.getParameterSpec("secp256r1");
         ECPoint point = curve.getCurve().decodePoint(Base64.getDecoder().decode(subscription.getP256dh()));
@@ -128,7 +164,7 @@ public class VisitNotificationService {
                 .generatePublic(new ECPublicKeySpec(point, curve));
         byte[] payload = ("{\"title\":\"EstateFlow visitor request\",\"body\":\""
                 + message.replace("\\", "\\\\").replace("\"", "\\\"")
-                + "\",\"url\":\"/resident/visits\"}").getBytes(StandardCharsets.UTF_8);
+                + "\",\"url\":\"" + (url == null ? "/resident/visits" : url) + "\",\"tag\":\"" + tag + "\"}").getBytes(StandardCharsets.UTF_8);
         Notification push = new Notification(subscription.getEndpoint(), userKey,
                 Base64.getDecoder().decode(subscription.getAuth()), payload);
         HttpResponse response = new PushService(vapidPublicKey, vapidPrivateKey, vapidSubject).send(push);
@@ -150,7 +186,7 @@ public class VisitNotificationService {
             if (!vapidPublicKey.isBlank() && !vapidPrivateKey.isBlank() && visit.getResident().getUser() != null) {
                 for (PushSubscription subscription : subscriptions.findByUser(visit.getResident().getUser())) {
                     try {
-                        sendPush(subscription, "A visitor is waiting at the estate gate.");
+                        sendPush(subscription, "A visitor is waiting at the estate gate.", "/resident/visits", "estateflow-visitor-request");
                         accepted = true;
                     } catch (Exception failure) {
                         if (failure.getMessage() != null && failure.getMessage().contains("410")) subscriptions.delete(subscription);

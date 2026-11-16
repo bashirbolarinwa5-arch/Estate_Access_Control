@@ -110,9 +110,14 @@ public class SyncService {
 
                 SyncCommandProcessor.ProcessedCommand processed =
                         processor.process(actor, command, targetPublicId);
+                String outcome = processed.status() == null || processed.status().isBlank()
+                        ? "ACKNOWLEDGED" : processed.status();
                 SyncCommandReceipt receipt = newReceipt(
                         actor, command, mutationPublicId, targetPublicId, payloadHash,
-                        "ACKNOWLEDGED", "Synced.", processed.serverId(), processed.publicId());
+                        outcome,
+                        processed.message() == null || processed.message().isBlank()
+                                ? "Synced." : processed.message(),
+                        processed.serverId(), processed.publicId());
                 receipts.saveAndFlush(receipt);
                 return toResult(receipt, command);
             });

@@ -4,6 +4,7 @@ import com.example.demo.entity.*;
 import com.example.demo.repository.*;
 import com.example.demo.response.SyncCommandDto;
 import com.example.demo.service.ActivityLogService;
+import com.example.demo.service.VisitNotificationService;
 import com.example.demo.service.VisitService;
 import com.example.demo.service.VisitorService;
 import org.springframework.dao.DataAccessException;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -31,6 +33,8 @@ public class SyncCommandProcessor {
     private final ActivityLogService activityLogService;
     private final ActivityLogRepository activityLogs;
     private final GateEntryRepository gateEntries;
+    private final SyncCommandReceiptRepository receiptRepository;
+    private final VisitNotificationService visitNotificationService;
 
     public SyncCommandProcessor(
             ResidentRepository residents,
@@ -43,7 +47,9 @@ public class SyncCommandProcessor {
             VisitorService visitorService,
             ActivityLogService activityLogService,
             ActivityLogRepository activityLogs,
-            GateEntryRepository gateEntries) {
+            GateEntryRepository gateEntries,
+            SyncCommandReceiptRepository receiptRepository,
+            VisitNotificationService visitNotificationService) {
         this.residents = residents;
         this.visitors = visitors;
         this.visits = visits;
@@ -55,6 +61,8 @@ public class SyncCommandProcessor {
         this.activityLogService = activityLogService;
         this.activityLogs = activityLogs;
         this.gateEntries = gateEntries;
+        this.receiptRepository = receiptRepository;
+        this.visitNotificationService = visitNotificationService;
     }
 
     public ProcessedCommand process(User actor, SyncCommandDto command, UUID entityPublicId) {
@@ -298,7 +306,10 @@ public class SyncCommandProcessor {
 
         GateEntry existing = gateEntries.findByPublicId(publicId).orElse(null);
         if (existing != null) {
-            return new ProcessedCommand(existing.getId(), existing.getPublicId());
+            boolean resolved = existing.getStatus() == GateEntryStatus.MATCHED;
+            return new ProcessedCommand(existing.getId(), existing.getPublicId(),
+                    resolved ? "ACKNOWLEDGED" : "REJECTED",
+                    resolved ? "Offline gate entry was matched." : existing.getNote());
         }
 
         String code = requiredText(payload, "accessCode", 12).toUpperCase(Locale.ROOT);
@@ -349,7 +360,19 @@ public class SyncCommandProcessor {
                         : "OFFLINE_GATE_ENTRY_NEEDS_REVIEW",
                 "Offline gate entry " + code + " recorded (" + saved.getStatus().name() + ")");
 
-        return new ProcessedCommand(saved.getId(), saved.getPublicId());
+        String outcome = saved.getStatus() == GateEntryStatus.MATCHED ? "ACKNOWLEDGED" : "REJECTED";
+        String outcomeMessage = saved.getStatus() == GateEntryStatus.MATCHED
+                ? "Offline gate entry was matched and the visitor was checked in."
+                : (saved.getNote() == null || saved.getNote().isBlank()
+                        ? "Offline gate entry resolved to needs review."
+                        : saved.getNote());
+
+        if (saved.getStatus() == GateEntryStatus.NEEDS_REVIEW) {
+            visitNotificationService.notifyGateEntryNeedsReview(
+                    estate, code, saved.getOccurredAt(), outcomeMessage);
+        }
+
+        return new ProcessedCommand(saved.getId(), saved.getPublicId(), outcome, outcomeMessage);
     }
 
     /**
@@ -385,6 +408,34 @@ public class SyncCommandProcessor {
                 entry.setNote("Matched and checked in when the visit synced.");
             }
             gateEntries.save(entry);
+        }
+
+        if (checkedIn) {
+            for (GateEntry entry : waiting) {
+                if (entry.getGuardUser() == null) continue;
+                acknowledgeGateEntry(entry.getGuardUser(), entry);
+            }
+        }
+    }
+
+    private void acknowledgeGateEntry(User actor, GateEntry entry) {
+        if (entry == null || entry.getPublicId() == null) return;
+        gateEntries.findByPublicId(entry.getPublicId()).ifPresent((resolved) -> {
+            resolveSyncReceipt(actor, resolved);
+        });
+    }
+
+    private void resolveSyncReceipt(User actor, GateEntry entry) {
+        if (entry == null || entry.getPublicId() == null) return;
+
+        List<SyncCommandReceipt> receipts = receiptRepository
+                .findByResultPublicIdAndActorUser(entry.getPublicId(), actor.getId());
+
+        for (SyncCommandReceipt receipt : receipts) {
+            if (!"REJECTED".equals(receipt.getStatus())) continue;
+            receipt.setStatus("ACKNOWLEDGED");
+            receipt.setMessage("Gate entry was resolved: " + entry.getAccessCode());
+            receiptRepository.saveAndFlush(receipt);
         }
     }
 
@@ -556,7 +607,10 @@ public class SyncCommandProcessor {
         return new ItemFailure("CONFLICT", message);
     }
 
-    public record ProcessedCommand(Long serverId, UUID publicId) {
+    public record ProcessedCommand(Long serverId, UUID publicId, String status, String message) {
+        public ProcessedCommand(Long serverId, UUID publicId) {
+            this(serverId, publicId, "ACKNOWLEDGED", "Synced.");
+        }
     }
 
     public static class ItemFailure extends RuntimeException {
