@@ -103,7 +103,7 @@ public class SyncCommandProcessor {
         String email = optionalText(payload, "email", 200);
         if (email.isBlank()) email = username + "@estateflow.local";
         if (users.existsByUsername(username)) throw rejected("Username already exists.");
-        if (residents.existsByEmail(email)) throw rejected("Email already exists.");
+        if (residents.existsByUserEstateAndEmail(estate, email)) throw rejected("Email already exists.");
 
         User account = new User();
         account.setPublicId(optionalUuid(payload, "userPublicId").orElseGet(UUID::randomUUID));

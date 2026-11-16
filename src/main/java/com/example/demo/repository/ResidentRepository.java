@@ -15,6 +15,9 @@ public interface ResidentRepository extends JpaRepository<Resident, Long> {
     // Existing Resident searches
     boolean existsByEmail(String email);
 
+    // Estate-scoped email uniqueness (a resident's estate lives on its user)
+    boolean existsByUserEstateAndEmail(Estate estate, String email);
+
     List<Resident> findByFullNameContainingIgnoreCase(String fullName);
 
     List<Resident> findByHouseNumberContainingIgnoreCase(String houseNumber);
