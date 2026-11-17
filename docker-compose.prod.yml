@@ -63,14 +63,14 @@ services:
       APP_TERMII_BASE_URL: ${TERMII_BASE_URL:-}
       APP_TERMII_API_KEY: ${TERMII_API_KEY:-}
       APP_TERMII_SENDER_ID: ${TERMII_SENDER_ID:-}
-      # Password-reset email. Defaults to the bundled Mailpit sink;
-      # point these at a real SMTP provider to deliver to real inboxes.
-      SMTP_HOST: ${SMTP_HOST:-mailpit}
-      SMTP_PORT: ${SMTP_PORT:-1025}
-      SMTP_USERNAME: ${SMTP_USERNAME:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      SMTP_AUTH: ${SMTP_AUTH:-false}
-      SMTP_STARTTLS: ${SMTP_STARTTLS:-false}
+      # Password-reset email. Gmail SMTP with STARTTLS (port 587).
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_AUTH: ${SMTP_AUTH:-true}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
       MAIL_FROM: ${MAIL_FROM:-no-reply@estateflow.local}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-EstateFlow}
     ports:
@@ -78,26 +78,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    restart: unless-stopped
-
-  # ---------- Mailpit (SMTP sink for password-reset emails) ----------
-  #
-  # Free and self-hosted. The backend sends reset links here;
-  # open the UI through an SSH tunnel:
-  #
-  #   ssh -L 8025:localhost:8025 adeyemi
-  #   then browse http://localhost:8025
-  #
-  # Bound to 127.0.0.1 so it is never exposed publicly.
-  # To deliver to real inboxes instead, point SMTP_HOST/PORT/
-  # USERNAME/PASSWORD at a real provider in .env.
-  mailpit:
-    image: axllent/mailpit:latest
-    container_name: estateflow-mailpit
-    environment:
-      MP_MAX_MESSAGES: 1000
-    ports:
-      - "127.0.0.1:8025:8025"
     restart: unless-stopped
 
   # =============================================================
