@@ -14,4 +14,17 @@ public interface SecurityRepository extends JpaRepository<Security, Long> {
 
     // Estate isolation
     List<Security> findByUserEstate(Estate estate);
+
+    /*
+     * Self-service activation lookups. The estate comes from the linked
+     * login account (security.user_id -> users.estate_id), so an email or
+     * phone number can never reach a security officer in another estate.
+     *
+     * Phone numbers are not unique, so the oldest match wins.
+     */
+    Optional<Security> findFirstByEmailIgnoreCaseAndUserEstateId(
+            String email, Long estateId);
+
+    Optional<Security> findFirstByPhoneNumberAndUserEstateIdOrderByIdAsc(
+            String phoneNumber, Long estateId);
 }

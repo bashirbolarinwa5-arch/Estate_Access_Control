@@ -8,7 +8,6 @@ import com.example.demo.entity.User;
 import com.example.demo.entity.Visit;
 import com.example.demo.repository.SecurityRepository;
 import com.example.demo.repository.UserRepository;
-import com.example.demo.response.PasswordResetResult;
 import com.example.demo.response.SecurityRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -16,6 +15,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class SecurityService {
@@ -26,6 +26,8 @@ public class SecurityService {
     private final VisitService visitService;
     private final CurrentUserService currentUserService;
     private final CredentialService credentialService;
+    private final PasswordResetService passwordResetService;
+    private final ActivityLogService activityLogService;
     private final TransactionTemplate transactionTemplate;
 
     public SecurityService(
@@ -35,6 +37,8 @@ public class SecurityService {
             VisitService visitService,
             CurrentUserService currentUserService,
             CredentialService credentialService,
+            PasswordResetService passwordResetService,
+            ActivityLogService activityLogService,
             PlatformTransactionManager transactionManager) {
 
         this.securityRepository = securityRepository;
@@ -43,32 +47,46 @@ public class SecurityService {
         this.visitService = visitService;
         this.currentUserService = currentUserService;
         this.credentialService = credentialService;
+        this.passwordResetService = passwordResetService;
+        this.activityLogService = activityLogService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     // CREATE SECURITY
+    /*
+     * Administrators never choose or see a security officer's password.
+     *
+     * The account is created in the PENDING_ACTIVATION state: the stored
+     * password is the hash of a random value nobody knows, so there is no
+     * default, shared or temporary password to distribute. The officer
+     * sets the real password through the emailed activation link.
+     */
     public Security createSecurity(
             Security security,
-            String username,
-            String password) {
+            String username) {
 
         security.setPhoneNumber(PhoneNumberValidator.requireElevenDigitsWhenPresent(
                 security.getPhoneNumber(), "Phone number"));
 
-        if (username == null || username.trim().isEmpty()) {
-            throw new RuntimeException(
-                    "Username is required"
-            );
+        if (security.getName() == null || security.getName().isBlank()) {
+            throw new RuntimeException("Name is required");
         }
 
-        if (password == null || password.trim().isEmpty()) {
-            throw new RuntimeException(
-                    "Password is required"
+        /*
+         * Username is optional: when the spreadsheet has no username
+         * column one is derived from the officer's name.
+         */
+        String cleanUsername = username == null
+                ? ""
+                : username.trim();
+
+        if (cleanUsername.isEmpty()) {
+
+            cleanUsername = credentialService.generateUsername(
+                    security.getName(),
+                    null
             );
         }
-
-        String cleanUsername =
-                username.trim();
 
         if (userRepository
                 .findByUsername(cleanUsername)
@@ -79,12 +97,30 @@ public class SecurityService {
             );
         }
 
+        /*
+         * Email is needed to deliver the activation link. When the sheet
+         * has none, an internal placeholder keeps the column populated;
+         * the activation endpoint then reports that no deliverable
+         * address is on file.
+         */
+        String cleanEmail = security.getEmail() == null
+                ? ""
+                : security.getEmail().trim();
+
+        if (cleanEmail.isEmpty()) {
+            cleanEmail = cleanUsername + "@estateflow.local";
+        }
+
         User user = new User();
 
         user.setUsername(cleanUsername);
 
+        /*
+         * Unguessable, unknown to everybody, never returned or logged.
+         * A single UUID stays inside BCrypt's 72-byte input limit.
+         */
         user.setPassword(
-                passwordEncoder.encode(password)
+                passwordEncoder.encode(java.util.UUID.randomUUID().toString())
         );
 
         user.setRole(
@@ -99,6 +135,10 @@ public class SecurityService {
                 currentUserService.getRequiredEstate()
         );
 
+        user.setActive(true);
+        user.setMustChangePassword(false);
+        user.setPendingActivation(true);
+
         User savedUser = userRepository.save(user);
 
         /*
@@ -109,12 +149,22 @@ public class SecurityService {
          */
         security.setPassword(null);
 
+        security.setEmail(cleanEmail);
+
         security.setUser(savedUser);
 
         return securityRepository.save(security);
     }
 
     // BULK CREATE SECURITY PERSONNEL (CSV / EXCEL IMPORT)
+    /*
+     * The sheet only needs Name, Phone, Email and Gate/Shift.
+     *
+     * A password column — if the file happens to have one — is ignored
+     * outright: no password from the file is ever stored, and no
+     * generated password is returned to the administrator. Every row
+     * lands in PENDING_ACTIVATION and the officer activates themself.
+     */
     public BulkImportResult createSecurities(
             List<SecurityRequest> requests) {
 
@@ -129,9 +179,12 @@ public class SecurityService {
 
             row.setRow(index + 1);
             row.setFullName(request.getName());
+            row.setShift(request.getShift());
 
             String username = request.getUsername();
-            String generatedPassword = null;
+
+            /* Any password supplied by the spreadsheet is discarded. */
+            request.setPassword(null);
 
             try {
 
@@ -143,33 +196,10 @@ public class SecurityService {
                     );
                 }
 
-                if (username == null || username.isBlank()) {
-
-                    username = credentialService.generateUsername(
-                            request.getName(),
-                            null
-                    );
-
-                    request.setUsername(username);
-                }
-
-                username = username.trim();
-                request.setUsername(username);
-
-                if (request.getPassword() == null ||
-                        request.getPassword().isBlank()) {
-
-                    generatedPassword =
-                            credentialService.generateTemporaryPassword();
-
-                    request.setPassword(generatedPassword);
-                }
-
                 /*
                  * The single-create controller builds this entity
                  * before calling the service, so the bulk path has
-                 * to do the same. Otherwise the account is created
-                 * with no name, phone number or email.
+                 * to do the same.
                  */
                 Security securityPerson = new Security();
 
@@ -185,27 +215,24 @@ public class SecurityService {
                         request.getEmail()
                 );
 
-                boolean mustChangePassword = generatedPassword != null;
+                securityPerson.setShift(
+                        request.getShift() == null
+                                ? null
+                                : request.getShift().trim()
+                );
 
-                Security created = transactionTemplate.execute(status -> {
-                    Security importedSecurity = createSecurity(
-                            securityPerson,
-                            request.getUsername(),
-                            request.getPassword()
-                    );
-
-                    if (mustChangePassword) {
-                        User user = importedSecurity.getUser();
-                        user.setMustChangePassword(true);
-                        userRepository.save(user);
-                    }
-
-                    return importedSecurity;
-                });
+                Security created = transactionTemplate.execute(status ->
+                        createSecurity(
+                                securityPerson,
+                                request.getUsername()
+                        ));
 
                 row.setSuccess(true);
-                row.setUsername(username);
-                row.setTemporaryPassword(generatedPassword);
+                row.setUsername(
+                        created != null && created.getUser() != null
+                                ? created.getUser().getUsername()
+                                : username);
+                row.setActivationStatus("PENDING_ACTIVATION");
 
             } catch (RuntimeException ex) {
 
@@ -225,45 +252,39 @@ public class SecurityService {
     }
 
     /*
-     * Admin-triggered password reset for a security officer.
+     * Admin "resend" action in the security list. Sends the secure
+     * activation link to the address on the record; the admin never sees
+     * or handles a password.
      */
-    public PasswordResetResult resetPassword(Long id) {
+    public Map<String, Object> sendActivationLink(Long id) {
 
         Security securityPerson = securityRepository.findById(id)
                 .orElseThrow(() ->
                         new RuntimeException("security not found")
                 );
 
-        currentUserService.verifySameEstate(
-                currentUserService.getRequiredEstate(),
-                securityPerson.getUser() == null
-                        ? null
-                        : securityPerson.getUser().getEstate()
-        );
-
-        User user = securityPerson.getUser();
-
-        if (user == null) {
+        if (securityPerson.getUser() == null) {
             throw new RuntimeException(
                     "This security officer has no login account"
             );
         }
 
-        String temporaryPassword =
-                credentialService.generateTemporaryPassword();
-
-        user.setPassword(
-                passwordEncoder.encode(temporaryPassword)
+        currentUserService.verifySameEstate(
+                currentUserService.getRequiredEstate(),
+                securityPerson.getUser().getEstate()
         );
 
-        user.setMustChangePassword(true);
+        Map<String, Object> result =
+                passwordResetService.sendActivationLink(securityPerson);
 
-        userRepository.save(user);
-
-        return new PasswordResetResult(
-                user.getUsername(),
-                temporaryPassword
+        activityLogService.log(
+                "ADMIN",
+                "ACTIVATION_LINK_REQUESTED",
+                "Activation link requested for security officer "
+                        + securityPerson.getName()
         );
+
+        return result;
     }
 
     // GET ALL SECURITY
@@ -328,6 +349,10 @@ public class SecurityService {
 
         existingSecurity.setEmail(
                 updatedSecurity.getEmail()
+        );
+
+        existingSecurity.setShift(
+                updatedSecurity.getShift()
         );
 
         /*

@@ -225,7 +225,7 @@ public class SecurityConfig {
 
                         .requestMatchers(
                                 HttpMethod.POST,
-                                "/security/*/reset-password"
+                                "/security/*/send-activation"
                         )
                         .hasRole("ADMIN")
 

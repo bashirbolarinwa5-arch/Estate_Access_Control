@@ -12,10 +12,9 @@ import java.util.List;
  * the good ones. The result mirrors the incoming order so the
  * browser can line it up with the spreadsheet.
  *
- * Resident imports never carry a password. Every created row is
- * PENDING_ACTIVATION and activates itself through the emailed link.
- * temporaryPassword is only used by the security-personnel import,
- * where guards have no self-service onboarding.
+ * Resident and security imports never carry a password. Every created
+ * row is PENDING_ACTIVATION and activates itself through the emailed
+ * link, so no temporary password is ever generated or returned.
  */
 public class BulkImportResult {
 
@@ -40,11 +39,11 @@ public class BulkImportResult {
 
         private String houseNumber;
 
-        /* PENDING_ACTIVATION for self-service resident accounts. */
-        private String activationStatus;
+        /* Security imports: optional gate / shift assignment. */
+        private String shift;
 
-        /* Security-personnel imports only. Never set for residents. */
-        private String temporaryPassword;
+        /* PENDING_ACTIVATION for self-service accounts. */
+        private String activationStatus;
 
         private String reason;
 

@@ -2,10 +2,12 @@ package com.example.demo.service;
 
 import com.example.demo.entity.PasswordResetToken;
 import com.example.demo.entity.Resident;
+import com.example.demo.entity.Security;
 import com.example.demo.entity.User;
 import com.example.demo.repository.EstateRepository;
 import com.example.demo.repository.PasswordResetTokenRepository;
 import com.example.demo.repository.ResidentRepository;
+import com.example.demo.repository.SecurityRepository;
 import com.example.demo.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
@@ -68,6 +70,7 @@ public class PasswordResetService {
 
     private final PasswordResetTokenRepository resetTokens;
     private final ResidentRepository residents;
+    private final SecurityRepository securities;
     private final UserRepository users;
     private final EstateRepository estates;
     private final PasswordEncoder passwordEncoder;
@@ -81,6 +84,7 @@ public class PasswordResetService {
     public PasswordResetService(
             PasswordResetTokenRepository resetTokens,
             ResidentRepository residents,
+            SecurityRepository securities,
             UserRepository users,
             EstateRepository estates,
             PasswordEncoder passwordEncoder,
@@ -90,6 +94,7 @@ public class PasswordResetService {
 
         this.resetTokens = resetTokens;
         this.residents = residents;
+        this.securities = securities;
         this.users = users;
         this.estates = estates;
         this.passwordEncoder = passwordEncoder;
@@ -148,9 +153,9 @@ public class PasswordResetService {
             return response;
         }
 
-        Resident resident = resolveResident(resolvedEstateId, requested);
+        AccountTarget target = resolveAccount(resolvedEstateId, requested);
 
-        if (resident == null || resident.getUser() == null) {
+        if (target == null) {
             activityLogService.log(
                     "SYSTEM",
                     "PASSWORD_RESET_REQUEST",
@@ -158,7 +163,7 @@ public class PasswordResetService {
             return response;
         }
 
-        dispatchLink(resident, flow);
+        dispatchLink(target, flow);
 
         return response;
     }
@@ -174,8 +179,8 @@ public class PasswordResetService {
 
     /*
      * Administrator-triggered activation mail (the "resend" action in the
-     * resident list). The admin is authenticated and already allowed to
-     * see the address, so this variant may report whether mail went out.
+     * admin lists). The admin is authenticated and already allowed to see
+     * the address, so this variant may report whether mail went out.
      */
     @Transactional
     public Map<String, Object> sendActivationLink(Resident resident) {
@@ -188,7 +193,14 @@ public class PasswordResetService {
             return result;
         }
 
-        boolean sent = dispatchLink(resident, PURPOSE_ACTIVATION);
+        boolean sent = dispatchLink(
+                new AccountTarget(
+                        resident.getUser(),
+                        resident.getEmail(),
+                        resident.getFullName(),
+                        "resident",
+                        resident.getId()),
+                PURPOSE_ACTIVATION);
 
         result.put("sent", sent);
         result.put(
@@ -196,6 +208,40 @@ public class PasswordResetService {
                 sent
                         ? "Activation email sent to " + resident.getEmail()
                         : "This resident has no deliverable email address on file.");
+
+        return result;
+    }
+
+    /*
+     * Same action for a security officer. Guards follow the identical
+     * self-service flow; only the wording of the reply differs.
+     */
+    @Transactional
+    public Map<String, Object> sendActivationLink(Security officer) {
+
+        Map<String, Object> result = new HashMap<>();
+
+        if (officer == null || officer.getUser() == null) {
+            result.put("sent", false);
+            result.put("message", "This security officer has no login account.");
+            return result;
+        }
+
+        boolean sent = dispatchLink(
+                new AccountTarget(
+                        officer.getUser(),
+                        officer.getEmail(),
+                        officer.getName(),
+                        "security officer",
+                        officer.getId()),
+                PURPOSE_ACTIVATION);
+
+        result.put("sent", sent);
+        result.put(
+                "message",
+                sent
+                        ? "Activation email sent to " + officer.getEmail()
+                        : "This security officer has no deliverable email address on file.");
 
         return result;
     }
@@ -286,25 +332,39 @@ public class PasswordResetService {
     /* Internals                                                          */
     /* ------------------------------------------------------------------ */
 
-    private boolean dispatchLink(Resident resident, String flow) {
+    /*
+     * Everything one account needs in order to receive a link, regardless
+     * of whether it belongs to a resident or a security officer.
+     *
+     * label is used in audit text ("resident 31"), id is the record id.
+     */
+    private record AccountTarget(
+            User user,
+            String email,
+            String fullName,
+            String label,
+            Long recordId) {
+    }
 
-        User user = resident.getUser();
+    private boolean dispatchLink(AccountTarget target, String flow) {
+
+        User user = target.user();
 
         boolean activation = PURPOSE_ACTIVATION.equals(flow)
                 || Boolean.TRUE.equals(user.getPendingActivation());
 
-        String email = resident.getEmail();
+        String email = target.email();
 
         if (!isDeliverable(email)) {
 
-            log.warn("Account link skipped: resident {} has no deliverable email address",
-                    resident.getId());
+            log.warn("Account link skipped: {} {} has no deliverable email address",
+                    target.label(), target.recordId());
 
             activityLogService.logForUser(
                     user,
                     user.getUsername(),
                     "PASSWORD_RESET_NO_EMAIL",
-                    "No deliverable email on file for resident " + resident.getId());
+                    "No deliverable email on file for " + target.label() + " " + target.recordId());
 
             return false;
         }
@@ -329,7 +389,7 @@ public class PasswordResetService {
 
             emailService.sendAccountLinkEmail(
                     email,
-                    resident.getFullName(),
+                    target.fullName(),
                     user.getUsername(),
                     url,
                     activation);
@@ -362,10 +422,45 @@ public class PasswordResetService {
         }
     }
 
-    private Resident resolveResident(Long estateId, String identifier) {
+    /*
+     * Resolves an estate-scoped account by email address or phone number.
+     *
+     * Residents are checked first, then security officers, so the same
+     * identifier can serve either role on the login page. The estate is
+     * always part of the filter: an address in another estate never
+     * resolves.
+     */
+    private AccountTarget resolveAccount(Long estateId, String identifier) {
 
         if (identifier.contains("@")) {
-            return residents.findByEstateIdAndEmail(estateId, identifier).orElse(null);
+
+            Resident resident = residents
+                    .findByEstateIdAndEmail(estateId, identifier)
+                    .orElse(null);
+
+            if (resident != null && resident.getUser() != null) {
+                return new AccountTarget(
+                        resident.getUser(),
+                        resident.getEmail(),
+                        resident.getFullName(),
+                        "resident",
+                        resident.getId());
+            }
+
+            Security officer = securities
+                    .findFirstByEmailIgnoreCaseAndUserEstateId(identifier, estateId)
+                    .orElse(null);
+
+            if (officer != null && officer.getUser() != null) {
+                return new AccountTarget(
+                        officer.getUser(),
+                        officer.getEmail(),
+                        officer.getName(),
+                        "security officer",
+                        officer.getId());
+            }
+
+            return null;
         }
 
         String phone = normalisePhone(identifier);
@@ -374,9 +469,33 @@ public class PasswordResetService {
             return null;
         }
 
-        return residents
+        Resident resident = residents
                 .findFirstByEstateIdAndPhoneNumberOrderByIdAsc(estateId, phone)
                 .orElse(null);
+
+        if (resident != null && resident.getUser() != null) {
+            return new AccountTarget(
+                    resident.getUser(),
+                    resident.getEmail(),
+                    resident.getFullName(),
+                    "resident",
+                    resident.getId());
+        }
+
+        Security officer = securities
+                .findFirstByPhoneNumberAndUserEstateIdOrderByIdAsc(phone, estateId)
+                .orElse(null);
+
+        if (officer != null && officer.getUser() != null) {
+            return new AccountTarget(
+                    officer.getUser(),
+                    officer.getEmail(),
+                    officer.getName(),
+                    "security officer",
+                    officer.getId());
+        }
+
+        return null;
     }
 
     /*

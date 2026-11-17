@@ -143,18 +143,26 @@ public class SyncCommandProcessor {
         String name = requiredText(payload, "name", 160);
         String phone = requiredPhone(payload, "phoneNumber");
         String username = requiredText(payload, "username", 80);
-        String password = requiredText(payload, "password", 200);
         String email = optionalText(payload, "email", 200);
+        String shift = optionalText(payload, "shift", 120);
         if (users.existsByUsername(username)) throw rejected("Username already exists.");
 
         User account = new User();
         account.setPublicId(optionalUuid(payload, "userPublicId").orElseGet(UUID::randomUUID));
         account.setUsername(username);
-        account.setPassword(passwordEncoder.encode(password));
+        /*
+         * Administrators never set security passwords, even from the
+         * offline queue: the account starts pending activation and the
+         * officer chooses the password through the emailed link.
+         *
+         * A single UUID stays inside BCrypt's 72-byte input limit.
+         */
+        account.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
         account.setRole(Role.ROLE_SECURITY);
         account.setEstate(estate);
         account.setActive(true);
         account.setMustChangePassword(false);
+        account.setPendingActivation(true);
         users.save(account);
 
         Security security = new Security();
@@ -162,8 +170,11 @@ public class SyncCommandProcessor {
         security.setName(name);
         security.setPhoneNumber(phone);
         security.setEmail(email);
+        security.setShift(shift);
         security.setUser(account);
         Security saved = securityPeople.save(security);
+        activityLogService.log("ADMIN", "SECURITY_CREATED",
+                "Security officer " + name + " was created (pending activation)");
         return new ProcessedCommand(saved.getId(), saved.getPublicId());
     }
 

@@ -4,7 +4,6 @@ import {
     ArrowLeft,
     ArrowRight,
     CheckCircle2,
-    Copy,
     Download,
     FileSpreadsheet,
     Loader2,
@@ -24,7 +23,10 @@ import { useToast } from "./useToast";
  *   2. map the sheet's own columns onto the fields we need
  *   3. review what will be created and what is wrong
  *   4. import in small batches with a progress bar
- *   5. download the generated credentials and the failed rows
+ *   5. review the activation summary and download the failed rows
+ *
+ * No password is ever read, generated or handed back: every created
+ * account starts pending activation and activates itself by email.
  *
  * The admin's existing sheet is the source of truth: no fixed
  * template is required, only the column mapping.
@@ -66,10 +68,9 @@ const FIELD_SETS = {
         },
     ],
     /*
-     * Residents never get a password column. If the sheet contains one it
-     * is simply not mapped — no password is read, stored or returned.
-     * Security personnel keep password mapping because guards have no
-     * self-service onboarding.
+     * Neither residents nor security officers ever get a password column.
+     * If the sheet contains one it is simply not mapped — no password is
+     * read, stored or returned. Both kinds activate themselves.
      */
     security: [
         {
@@ -91,16 +92,16 @@ const FIELD_SETS = {
             aliases: ["email", "e-mail", "email address", "mail"],
         },
         {
+            key: "shift",
+            label: "Gate / Shift",
+            required: false,
+            aliases: ["gate", "shift", "gate/shift", "gate / shift", "post", "duty", "station", "assignment", "rota"],
+        },
+        {
             key: "username",
             label: "Username",
             required: false,
             aliases: ["username", "user name", "login", "login id", "user id"],
-        },
-        {
-            key: "password",
-            label: "Password",
-            required: false,
-            aliases: ["password", "pass", "temp password", "temporary password"],
         },
     ],
 };
@@ -290,6 +291,14 @@ function BulkImportModal({
 
     const isResident = kind === "resident";
 
+    /*
+     * Both kinds of account now use the same self-service activation, so
+     * the wizard wording branches on this label instead of on whether a
+     * password is handed out.
+     */
+    const personLabel = isResident ? "resident" : "security officer";
+    const personPlural = isResident ? "residents" : "security officers";
+
     const { showSuccess, showError } = useToast();
 
     const fileInputRef = useRef(null);
@@ -305,7 +314,6 @@ function BulkImportModal({
     const [progress, setProgress] = useState({ done: 0, total: 0 });
 
     const [failures, setFailures] = useState([]);
-    const [credentials, setCredentials] = useState([]);
     const [createdCount, setCreatedCount] = useState(0);
     const [pendingActivationCount, setPendingActivationCount] = useState(0);
 
@@ -488,17 +496,16 @@ function BulkImportModal({
     }
 
     function downloadTemplate() {
-        const labels = fields.map((field) =>
-            field.key === "password" ? "Password (optional)" : field.label
-        );
+        const labels = fields.map((field) => field.label);
 
         const example = fields.map((field) => {
             if (field.key === "fullName") return "Adaeze Okonkwo";
             if (field.key === "name") return "Tunde Bakare";
             if (field.key === "phoneNumber") return "08012345678";
             if (field.key === "houseNumber") return "12B";
+            if (field.key === "shift") return "Main Gate - Night";
             if (field.key === "email") {
-                return isResident ? "adaeze@yourmail.com" : "adaeze@example.com";
+                return isResident ? "adaeze@yourmail.com" : "tunde@yourmail.com";
             }
             return "";
         });
@@ -530,7 +537,6 @@ function BulkImportModal({
                 reason: row.reason,
             }))
         );
-        setCredentials([]);
         setCreatedCount(0);
         setPendingActivationCount(0);
         setProgress({ done: 0, total: preview.ready.length });
@@ -542,7 +548,6 @@ function BulkImportModal({
             label: row.label,
             reason: row.reason,
         }));
-        const collectedCredentials = [];
 
         for (
             let start = 0;
@@ -573,26 +578,11 @@ function BulkImportModal({
                         created++;
 
                         /*
-                         * Residents never receive a password — not from the
-                         * sheet, not generated. They activate themselves.
+                         * No account receives a password from the sheet or
+                         * from the server. Every created row is pending
+                         * activation and activates itself.
                          */
-                        if (isResident) {
-                            pendingActivation++;
-                        } else {
-                            collectedCredentials.push({
-                                name:
-                                    source.item.fullName ||
-                                    source.item.name ||
-                                    "",
-                                houseNumber: source.item.houseNumber || "",
-                                phoneNumber: source.item.phoneNumber || "",
-                                username: result.username || source.item.username,
-                                password:
-                                    result.temporaryPassword ||
-                                    source.item.password || "",
-                                mustChangePassword: Boolean(result.temporaryPassword),
-                            });
-                        }
+                        pendingActivation++;
                     } else {
                         collectedFailures.push({
                             row: source.rowNumber,
@@ -651,16 +641,13 @@ function BulkImportModal({
 
         setCreatedCount(created);
         setPendingActivationCount(pendingActivation);
-        setCredentials(collectedCredentials);
         setFailures(collectedFailures);
         setImporting(false);
         setStep("done");
 
         if (created > 0) {
             showSuccess(
-                isResident
-                    ? `${created} resident${created === 1 ? "" : "s"} created — ${pendingActivation} need activation.`
-                    : `${created} account${created === 1 ? "" : "s"} created.`
+                `${created} ${created === 1 ? personLabel : personPlural} created — ${pendingActivation} need activation.`
             );
 
             if (typeof onCreated === "function") {
@@ -681,37 +668,6 @@ function BulkImportModal({
     /* Downloads                                                      */
     /* -------------------------------------------------------------- */
 
-    function downloadCredentials() {
-        const rows = [
-            [
-                "Name",
-                "House",
-                "Phone",
-                "Username",
-                "Password",
-                "Must change password on first login",
-            ],
-        ];
-
-        credentials.forEach((account) => {
-            rows.push([
-                account.name,
-                account.houseNumber,
-                account.phoneNumber,
-                account.username,
-                account.password,
-                account.mustChangePassword ? "YES" : "NO",
-            ]);
-        });
-
-        downloadCsv(
-            kind === "resident"
-                ? "estateflow-resident-credentials.csv"
-                : "estateflow-security-credentials.csv",
-            rows
-        );
-    }
-
     function downloadFailures() {
         const rows = [["Excel row", "Name / username", "Reason"]];
 
@@ -724,22 +680,6 @@ function BulkImportModal({
         });
 
         downloadCsv("estateflow-import-failures.csv", rows);
-    }
-
-    function copyCredentials() {
-        const text = credentials
-            .map(
-                (account) =>
-                    `${account.name} | ${account.username} | ${account.password}`
-            )
-            .join("\n");
-
-        if (navigator.clipboard?.writeText) {
-            navigator.clipboard
-                .writeText(text)
-                .then(() => showSuccess("Credentials copied."))
-                .catch(() => showError("Could not copy. Download the CSV instead."));
-        }
     }
 
     /* -------------------------------------------------------------- */
@@ -851,13 +791,14 @@ function BulkImportModal({
                                         </>
                                     ) : (
                                         <>
-                                            <strong>Passwords:</strong> leave
-                                            the password column out and the
-                                            system generates a temporary
-                                            password for each account. Every
-                                            generated password must be changed
-                                            at first login. If your sheet has a
-                                            password column it is used as-is.
+                                            <strong>No passwords needed.</strong>{" "}
+                                            The sheet only needs name, phone,
+                                            email and gate/shift. Each officer
+                                            sets their own password the first
+                                            time they open EstateFlow — you
+                                            never create or share one. A
+                                            password column, if present, is
+                                            ignored.
                                         </>
                                     )}
                                 </p>
@@ -1093,9 +1034,9 @@ function BulkImportModal({
                                 <div>
                                     <strong>
                                         {createdCount}{" "}
-                                        {isResident
-                                            ? `resident${createdCount === 1 ? "" : "s"}`
-                                            : `account${createdCount === 1 ? "" : "s"}`}{" "}
+                                        {createdCount === 1
+                                            ? personLabel
+                                            : personPlural}{" "}
                                         created
                                     </strong>
 
@@ -1107,105 +1048,34 @@ function BulkImportModal({
                                 </div>
                             </div>
 
-                            {isResident && createdCount > 0 && (
+                            {createdCount > 0 && (
                                 <div className="import-activation">
                                     <strong>
-                                        {pendingActivationCount} resident
+                                        {pendingActivationCount} {personLabel}
                                         {pendingActivationCount === 1 ? "" : "s"}{" "}
                                         need activation
                                     </strong>
 
                                     <p>
                                         You do not need to share passwords —
-                                        none were created. Each resident opens
-                                        EstateFlow, taps{" "}
+                                        none were created. Each {personLabel}
+                                        {" "}opens EstateFlow, taps{" "}
                                         <b>“First time here? Create password”</b>{" "}
                                         and uses the estate code with the email
                                         or phone number on their record.
                                     </p>
 
                                     <p>
-                                        Residents without a real email address
-                                        (or with an <code>@example.com</code>{" "}
-                                        address) cannot be emailed. Update their
-                                        email, then use{" "}
-                                        <b>Send activation link</b> in the
-                                        resident list.
+                                        {isResident
+                                            ? "Residents"
+                                            : "Officers"}{" "}
+                                        without a real email address (or with an{" "}
+                                        <code>@example.com</code> address) cannot
+                                        be emailed. Update their email, then use{" "}
+                                        <b>Send activation link</b> in the{" "}
+                                        {isResident ? "resident" : "security"}{" "}
+                                        list.
                                     </p>
-                                </div>
-                            )}
-
-                            {credentials.length > 0 && (
-                                <div className="import-result-block">
-                                    <div className="import-result-head">
-                                        <strong>Credentials</strong>
-
-                                        <div className="import-result-actions">
-                                            <button
-                                                type="button"
-                                                className="import-link"
-                                                onClick={copyCredentials}
-                                            >
-                                                <Copy size={14} />
-                                                Copy
-                                            </button>
-
-                                            <button
-                                                type="button"
-                                                className="import-link"
-                                                onClick={downloadCredentials}
-                                            >
-                                                <Download size={14} />
-                                                Download CSV
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <p className="import-hint">
-                                        Download and securely distribute these
-                                        credentials. Generated temporary
-                                        passwords must be changed at first
-                                        login.
-                                    </p>
-
-                                    <div className="import-table-wrap small">
-                                        <table className="import-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>Name</th>
-                                                    <th>Username</th>
-                                                    <th>Password</th>
-                                                </tr>
-                                            </thead>
-
-                                            <tbody>
-                                                {credentials
-                                                    .slice(0, 50)
-                                                    .map((account, index) => (
-                                                        <tr
-                                                            key={`${account.username}-${index}`}
-                                                        >
-                                                            <td>
-                                                                {account.name ||
-                                                                    "—"}
-                                                            </td>
-                                                            <td>
-                                                                {
-                                                                    account.username
-                                                                }
-                                                            </td>
-                                                            <td>
-                                                                <code>
-                                                                    {
-                                                                        account.password
-                                                                    }
-                                                                </code>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
                                 </div>
                             )}
 

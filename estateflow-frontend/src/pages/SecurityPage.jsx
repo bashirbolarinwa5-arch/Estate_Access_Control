@@ -9,6 +9,7 @@ import {
     Mail,
     KeyRound,
     Pencil,
+    Send,
     Trash2,
     X,
     Check,
@@ -18,8 +19,6 @@ import {
     Users,
     Clock3,
     ClipboardCheck,
-    Eye,
-    EyeOff,
 } from "lucide-react";
 
 import api from "../services/api";
@@ -30,13 +29,40 @@ import { generateOfflineAccessCode } from "../db/accessCode";
 
 import { useToast } from "../components/useToast";
 import BulkImportModal from "../components/BulkImportModal";
-import TempPasswordModal from "../components/TempPasswordModal";
 import PassVerificationPanel from "../components/PassVerificationPanel";
 
 const ACCESS_CODE_PATTERN = /^[A-Z0-9]{6}$/;
 
 function getResponseData(response) {
     return response?.data?.data ?? response?.data;
+}
+
+/*
+ * Activation state comes from the linked login account (read-only on the
+ * security record). Imported officers are PENDING_ACTIVATION: they have
+ * no password and cannot sign in until they set one.
+ */
+const STATUS_LABELS = {
+    PENDING_ACTIVATION: "Pending activation",
+    ACTIVE: "Active",
+    DISABLED: "Disabled",
+    NO_ACCOUNT: "No account",
+};
+
+function activationStatusOf(person) {
+    return person.activationStatus || "ACTIVE";
+}
+
+/*
+ * Imported officers without an email keep an internal placeholder so the
+ * column stays populated. It is not a real address, so never show it.
+ */
+function displayEmail(email) {
+    if (!email || email.toLowerCase().endsWith("@estateflow.local")) {
+        return "—";
+    }
+
+    return email;
 }
 
 function SecurityPage() {
@@ -122,15 +148,13 @@ function SecurityPage() {
     const [showBulkSecurityModal, setShowBulkSecurityModal] = useState(false);
     const [editingSecurityId, setEditingSecurityId] = useState(null);
 
-    const [resettingSecurityId, setResettingSecurityId] = useState(null);
-    const [resetSecurityResult, setResetSecurityResult] = useState(null);
+    const [sendingSecurityId, setSendingSecurityId] = useState(null);
 
     const [securityName, setSecurityName] = useState("");
     const [securityPhone, setSecurityPhone] = useState("");
     const [securityEmail, setSecurityEmail] = useState("");
     const [securityUsername, setSecurityUsername] = useState("");
-    const [securityPassword, setSecurityPassword] = useState("");
-    const [showSecurityPassword, setShowSecurityPassword] = useState(false);
+    const [securityShift, setSecurityShift] = useState("");
 
     // Resident data for walk-in visits
     const [residents, setResidents] = useState([]);
@@ -404,7 +428,7 @@ function SecurityPage() {
         setSecurityPhone("");
         setSecurityEmail("");
         setSecurityUsername("");
-        setSecurityPassword("");
+        setSecurityShift("");
         setEditingSecurityId(null);
     }
 
@@ -424,7 +448,7 @@ function SecurityPage() {
         setSecurityPhone(person.phoneNumber || "");
         setSecurityEmail(person.email || "");
         setSecurityUsername("");
-        setSecurityPassword("");
+        setSecurityShift(person.shift || "");
 
         setShowSecurityModal(true);
     }
@@ -459,17 +483,11 @@ function SecurityPage() {
         }
 
         if (!editingSecurityId) {
-            if (!securityUsername.trim() || !securityPassword) {
-                showError("Please enter a username and password.");
-                setError("Please enter a username and password.");
-                return;
-            }
-
-            if (securityPassword.length < 6) {
-                showError("Password must be at least 6 characters.");
-                setError("Password must be at least 6 characters.");
-                return;
-            }
+            /*
+             * No password is collected: the officer sets their own through
+             * the emailed activation link. Username is optional too — the
+             * server derives one from the name.
+             */
         }
 
         try {
@@ -480,6 +498,7 @@ function SecurityPage() {
                     name: securityName.trim(),
                     phoneNumber: securityPhone.trim(),
                     email: securityEmail.trim(),
+                    shift: securityShift.trim(),
                 });
 
                 setSuccess("Security personnel updated successfully.");
@@ -489,12 +508,16 @@ function SecurityPage() {
                     name: securityName.trim(),
                     phoneNumber: securityPhone.trim(),
                     email: securityEmail.trim(),
-                    username: securityUsername.trim(),
-                    password: securityPassword,
+                    shift: securityShift.trim(),
+                    ...(securityUsername.trim()
+                        ? { username: securityUsername.trim() }
+                        : {}),
                 });
 
-                setSuccess("Security personnel created successfully.");
-                showSuccess("Security personnel created successfully.");
+                setSuccess(
+                    "Security personnel added — pending activation. They set their own password by email."
+                );
+                showSuccess("Security personnel added — pending activation.");
             }
 
             setShowSecurityModal(false);
@@ -545,38 +568,35 @@ function SecurityPage() {
         }
     }
 
-    async function handleResetSecurityPassword(person) {
-        const confirmed = window.confirm(
-            `Reset the password for ${person.name || "this security officer"}? Their current password stops working immediately.`
-        );
-
-        if (!confirmed) return;
-
+    async function handleSendActivation(person) {
         try {
-            setResettingSecurityId(person.id);
+            setSendingSecurityId(person.id);
 
             const response = await api.post(
-                `/security/${person.id}/reset-password`
+                `/security/${person.id}/send-activation`
             );
 
             const data = getResponseData(response);
 
-            setResetSecurityResult({
-                name: person.name || "Security officer",
-                username: data?.username || "",
-                password: data?.temporaryPassword || "",
-            });
-
-            showSuccess("Password reset. Hand over the new temporary password.");
+            if (data?.sent === false) {
+                showError(
+                    data?.message ||
+                    "This security officer has no deliverable email address on file."
+                );
+            } else {
+                showSuccess(
+                    data?.message || "Activation email sent."
+                );
+            }
         } catch (err) {
-            console.error("Failed to reset security password:", err);
+            console.error("Failed to send security activation:", err);
 
             showError(
                 err.response?.data?.message ||
-                "Failed to reset the password."
+                "Failed to send the activation email."
             );
         } finally {
-            setResettingSecurityId(null);
+            setSendingSecurityId(null);
         }
     }
 
@@ -1375,22 +1395,23 @@ if (isSecurity) {
                     key={showBulkSecurityModal ? "bulk-open" : "bulk-closed"}
                     open={showBulkSecurityModal}
                     onClose={() => setShowBulkSecurityModal(false)}
-                    onCreated={() => loadSecurityPersonnel()}
+                    onCreated={({ created, pendingActivation } = {}) => {
+                        loadSecurityPersonnel();
+
+                        if (created) {
+                            setSuccess(
+                                `${created} security officer${created === 1 ? "" : "s"} created. ` +
+                                `${pendingActivation ?? created} need activation — ` +
+                                "no passwords were created or shared."
+                            );
+                        }
+                    }}
                     kind="security"
                     title="Import Security Personnel"
-                    subtitle="Upload your CSV or Excel sheet. Columns are mapped next, temporary passwords are generated, and each account must be changed at first login."
+                    subtitle="Upload your CSV or Excel sheet. No password column is needed: every officer activates their own account with the email or phone number on record."
                     endpoint="/security/bulk"
                 />
             )}
-
-            <TempPasswordModal
-                open={Boolean(resetSecurityResult)}
-                title="Security password reset"
-                personName={resetSecurityResult?.name}
-                username={resetSecurityResult?.username}
-                password={resetSecurityResult?.password}
-                onClose={() => setResetSecurityResult(null)}
-            />
 
             {showWalkInForm && (
                 <div
@@ -1710,6 +1731,25 @@ return (
                     <h2>All Security Personnel</h2>
                     <p>Security staff registered in EstateFlow.</p>
                 </div>
+
+                <div className="security-activation-summary">
+                    <div className="security-activation-summary-icon">
+                        <Send size={18} />
+                    </div>
+
+                    <div>
+                        <strong>
+                            {
+                                securityPersonnel.filter(
+                                    (person) =>
+                                        activationStatusOf(person) ===
+                                        "PENDING_ACTIVATION"
+                                ).length
+                            }
+                        </strong>
+                        <span>Need activation</span>
+                    </div>
+                </div>
             </div>
             {loadingSecurity ? (
                 <div className="security-loading">
@@ -1734,6 +1774,7 @@ return (
                             <th>Phone</th>
                             <th>Email</th>
                             <th>Role</th>
+                            <th>Status</th>
                             <th>Actions</th>
                         </tr>
                         </thead>
@@ -1757,7 +1798,9 @@ return (
                                                             {person.name || "Unknown"}
                                                         </span>
                                                 <span className="security-person-subtitle">
-                                                            Security Personnel
+                                                            {person.shift
+                                                                ? `Security Personnel · ${person.shift}`
+                                                                : "Security Personnel"}
                                                         </span>
                                             </div>
                                         </div>
@@ -1771,7 +1814,7 @@ return (
                                     <td>
                                         <div className="security-contact">
                                             <Mail size={14} />
-                                            <span>{person.email || "—"}</span>
+                                            <span>{displayEmail(person.email)}</span>
                                         </div>
                                     </td>
                                     <td>
@@ -1780,17 +1823,30 @@ return (
                                                 </span>
                                     </td>
                                     <td>
+                                        <span
+                                            className={
+                                                "security-status " +
+                                                activationStatusOf(person).toLowerCase()
+                                            }
+                                        >
+                                            {STATUS_LABELS[
+                                                activationStatusOf(person)
+                                            ] || activationStatusOf(person)}
+                                        </span>
+                                    </td>
+                                    <td>
                                         <div className="security-actions-row">
                                             <button
                                                 type="button"
                                                 className="security-table-button edit"
-                                                onClick={() => handleResetSecurityPassword(person)}
-                                                disabled={isProcessing || resettingSecurityId === person.id}
+                                                title="Send activation link"
+                                                onClick={() => handleSendActivation(person)}
+                                                disabled={isProcessing || sendingSecurityId === person.id}
                                             >
-                                                {resettingSecurityId === person.id
+                                                {sendingSecurityId === person.id
                                                     ? <RefreshCw size={14} className="security-small-spinner" />
-                                                    : <KeyRound size={14} />}
-                                                Reset
+                                                    : <Send size={14} />}
+                                                Activate
                                             </button>
                                             <button
                                                 type="button"
@@ -1895,41 +1951,34 @@ return (
                             </div>
                         </div>
 
+                        <div className="security-form-group">
+                            <label>Gate / Shift (optional)</label>
+                            <input
+                                value={securityShift}
+                                onChange={(event) => setSecurityShift(event.target.value)}
+                                placeholder="e.g. Main Gate - Night"
+                                disabled={savingSecurity}
+                            />
+                        </div>
+
                         {!editingSecurityId && (
-                            <>
-                                <div className="security-form-group">
-                                    <label>Username</label>
-                                    <input
-                                        value={securityUsername}
-                                        onChange={(event) => setSecurityUsername(event.target.value)}
-                                        placeholder="Create username"
-                                        disabled={savingSecurity}
-                                        autoComplete="off"
-                                        required
-                                    />
-                                </div>
-                                <div className="security-form-group">
-                                    <label>Password</label>
-                                    <input
-                                        type={showSecurityPassword ? "text" : "password"}
-                                        value={securityPassword}
-                                        onChange={(event) => setSecurityPassword(event.target.value)}
-                                        placeholder="Create password"
-                                        disabled={savingSecurity}
-                                        autoComplete="new-password"
-                                        required
-                                        style={showSecurityPassword ? { paddingRight: "44px" } : undefined}
-                                    />
-                                    <button
-                                        type="button"
-                                        className="security-password-toggle"
-                                        onClick={() => setShowSecurityPassword((value) => !value)}
-                                        aria-label={showSecurityPassword ? "Hide password" : "Show password"}
-                                    >
-                                        {showSecurityPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-                                    </button>
-                                </div>
-                            </>
+                            <div className="security-form-group">
+                                <label>Username (optional)</label>
+                                <input
+                                    value={securityUsername}
+                                    onChange={(event) => setSecurityUsername(event.target.value)}
+                                    placeholder="Leave blank to generate from the name"
+                                    disabled={savingSecurity}
+                                    autoComplete="off"
+                                />
+                                <p className="security-form-note">
+                                    No password is created and you never share
+                                    one. The officer sets their own password
+                                    with “First time here? Create password” on
+                                    the login page, using this estate code and
+                                    the email or phone number above.
+                                </p>
+                            </div>
                         )}
 
                         <div className="security-modal-actions">
@@ -2264,14 +2313,6 @@ const securityStyles = `
 .security-form-group { position: relative; margin-bottom: 17px; }
 .security-form-group label { display: block; margin-bottom: 7px; font-size: 12px; font-weight: 700; color: #344159; }
 .security-form-group input:disabled, .security-form-group select:disabled { background: #f8fafc; cursor: not-allowed; }
-.security-form-group input[type="password"] { padding-right: 42px; }
-.security-form-group .security-password-toggle {
-    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-    display: flex; align-items: center; justify-content: center; padding: 6px;
-    border: none; border-radius: 8px; background: transparent; color: #8a99b0;
-    cursor: pointer; z-index: 3;
-}
-.security-form-group .security-password-toggle:hover { color: #5b8def; }
 .security-walkin-note {
     display: flex; align-items: flex-start; gap: 10px; padding: 13px;
     border: 1px solid #fde68a; border-radius: 10px; background: #fffbeb;
@@ -2298,19 +2339,21 @@ const securityStyles = `
  * panel fits its container without horizontal scrolling.
  * The admin table keeps pixel widths inside its own scope.
  */
-.security-personnel-panel .security-table { min-width: 1000px; }
+.security-personnel-panel .security-table { min-width: 1160px; }
 .security-personnel-panel .security-table th:nth-child(1),
 .security-personnel-panel .security-table td:nth-child(1) { width: 65px; }
 .security-personnel-panel .security-table th:nth-child(2),
-.security-personnel-panel .security-table td:nth-child(2) { width: 235px; }
+.security-personnel-panel .security-table td:nth-child(2) { width: 215px; }
 .security-personnel-panel .security-table th:nth-child(3),
-.security-personnel-panel .security-table td:nth-child(3) { width: 170px; }
+.security-personnel-panel .security-table td:nth-child(3) { width: 150px; }
 .security-personnel-panel .security-table th:nth-child(4),
-.security-personnel-panel .security-table td:nth-child(4) { width: 235px; }
+.security-personnel-panel .security-table td:nth-child(4) { width: 210px; }
 .security-personnel-panel .security-table th:nth-child(5),
-.security-personnel-panel .security-table td:nth-child(5) { width: 150px; }
+.security-personnel-panel .security-table td:nth-child(5) { width: 130px; }
 .security-personnel-panel .security-table th:nth-child(6),
-.security-personnel-panel .security-table td:nth-child(6) { width: 220px; }
+.security-personnel-panel .security-table td:nth-child(6) { width: 150px; }
+.security-personnel-panel .security-table th:nth-child(7),
+.security-personnel-panel .security-table td:nth-child(7) { width: 240px; }
 .security-pending-panel { margin-top: 22px; }
 .security-pending-grid {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
@@ -2352,6 +2395,33 @@ const securityStyles = `
 .security-role-badge {
     display: inline-flex; align-items: center; min-height: 30px; padding: 0 10px;
     border-radius: 999px; background: #edf4ff; color: #2563eb; font-size: 11px; font-weight: 800;
+}
+/* Account activation state of the linked login account. */
+.security-status {
+    display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px;
+    border-radius: 999px; border: 1px solid transparent;
+    font-size: 11px; font-weight: 800; white-space: nowrap;
+}
+.security-status.pending_activation { background: #fff7ed; border-color: #fed7aa; color: #b45309; }
+.security-status.active { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
+.security-status.disabled { background: #fef2f2; border-color: #fecaca; color: #b42318; }
+.security-status.no_account { background: #f5f7fa; border-color: #e2e8f0; color: #64748b; }
+
+.security-activation-summary {
+    display: flex; align-items: center; gap: 11px;
+    padding: 10px 15px; border: 1px solid #fed7aa; border-radius: 14px;
+    background: #fffaf4;
+}
+.security-activation-summary-icon {
+    width: 36px; height: 36px; border-radius: 11px;
+    display: flex; align-items: center; justify-content: center;
+    background: #ffedd5; color: #c2740c;
+}
+.security-activation-summary strong { display: block; color: #7c2d12; font-size: 18px; line-height: 1.1; }
+.security-activation-summary span { color: #a16207; font-size: 12px; font-weight: 700; }
+
+.security-form-note {
+    margin: 8px 0 0; color: #7b8aa1; font-size: 11.5px; line-height: 1.55;
 }
 .security-actions-row { display: flex; align-items: center; gap: 7px; }
 .security-table-button {
