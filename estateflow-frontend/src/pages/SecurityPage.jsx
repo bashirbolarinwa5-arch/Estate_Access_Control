@@ -19,6 +19,7 @@ import {
     Users,
     Clock3,
     ClipboardCheck,
+    UploadCloud,
 } from "lucide-react";
 
 import api from "../services/api";
@@ -975,17 +976,6 @@ if (isSecurity) {
                         <Plus size={17} />
                         Create Walk-In Visit
                     </button>
-
-                    {isAdmin && (
-                        <button
-                            type="button"
-                            className="security-primary-button"
-                            onClick={() => setShowBulkSecurityModal(true)}
-                        >
-                            <Plus size={17} />
-                            Bulk Create Security
-                        </button>
-                    )}
                 </div>
             </div>
 
@@ -1390,29 +1380,6 @@ if (isSecurity) {
                 )}
             </section>
 
-            {isAdmin && (
-                <BulkImportModal
-                    key={showBulkSecurityModal ? "bulk-open" : "bulk-closed"}
-                    open={showBulkSecurityModal}
-                    onClose={() => setShowBulkSecurityModal(false)}
-                    onCreated={({ created, pendingActivation } = {}) => {
-                        loadSecurityPersonnel();
-
-                        if (created) {
-                            setSuccess(
-                                `${created} security officer${created === 1 ? "" : "s"} created. ` +
-                                `${pendingActivation ?? created} need activation — ` +
-                                "no passwords were created or shared."
-                            );
-                        }
-                    }}
-                    kind="security"
-                    title="Import Security Personnel"
-                    subtitle="Upload your CSV or Excel sheet. No password column is needed: every officer activates their own account with the email or phone number on record."
-                    endpoint="/security/bulk"
-                />
-            )}
-
             {showWalkInForm && (
                 <div
                     className="security-modal-overlay"
@@ -1599,6 +1566,16 @@ return (
                         size={18}
                         className={loadingSecurity ? "security-small-spinner" : ""}
                     />
+                </button>
+
+                <button
+                    type="button"
+                    className="security-bulk-button"
+                    onClick={() => setShowBulkSecurityModal(true)}
+                    title="Import many security officers from CSV or Excel"
+                >
+                    <UploadCloud size={16} />
+                    Bulk Import
                 </button>
 
                 <button
@@ -1879,6 +1856,27 @@ return (
             )}
         </section>
 
+        <BulkImportModal
+            key={showBulkSecurityModal ? "bulk-open" : "bulk-closed"}
+            open={showBulkSecurityModal}
+            onClose={() => setShowBulkSecurityModal(false)}
+            onCreated={({ created, pendingActivation } = {}) => {
+                loadSecurityPersonnel();
+
+                if (created) {
+                    setSuccess(
+                        `${created} security officer${created === 1 ? "" : "s"} created. ` +
+                        `${pendingActivation ?? created} need activation — ` +
+                        "no passwords were created or shared."
+                    );
+                }
+            }}
+            kind="security"
+            title="Import Security Personnel"
+            subtitle="Upload your CSV or Excel sheet. No password column is needed: every officer activates their own account with the email or phone number on record."
+            endpoint="/security/bulk"
+        />
+
         {showSecurityModal && (
             <div
                 className="security-modal-overlay"
@@ -2065,6 +2063,7 @@ const securityStyles = `
     display: flex;
     align-items: center;
     gap: 10px;
+    flex-wrap: wrap;
 }
 .security-refresh-button {
     width: 48px;
@@ -2079,6 +2078,14 @@ const securityStyles = `
     cursor: pointer;
 }
 .security-refresh-button:hover:not(:disabled) { background: #f8fafc; }
+/* Secondary header action: bulk import sits next to the single-add button. */
+.security-bulk-button {
+    min-height: 44px; padding: 0 16px; border-radius: 12px;
+    border: 1px solid #cfdcf5; background: white; color: #2557d6;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    font-weight: 700; cursor: pointer;
+}
+.security-bulk-button:hover { background: #f5f8ff; }
 .security-primary-button {
     min-height: 44px;
     border: none;
@@ -2458,7 +2465,7 @@ const securityStyles = `
     .security-page { padding: 24px 18px 45px; }
     .security-header { flex-direction: column; align-items: stretch; }
     .security-actions { width: 100%; }
-    .security-primary-button { flex: 1; }
+    .security-primary-button, .security-bulk-button { flex: 1; }
     .security-stat-grid { grid-template-columns: 1fr; }
     .security-pending-grid { grid-template-columns: minmax(0, 1fr); padding: 14px; }
     .security-inside-grid { grid-template-columns: minmax(0, 1fr); padding: 14px; }
