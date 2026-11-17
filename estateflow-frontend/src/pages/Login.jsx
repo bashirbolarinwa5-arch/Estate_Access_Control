@@ -5,9 +5,12 @@ import {
     LockKeyhole,
     UserRound,
     ShieldCheck,
+    Eye,
+    EyeOff,
+    Mail,
 } from "lucide-react";
 
-import { login } from "../services/auth";
+import { login, forgotPassword, resetPassword } from "../services/auth";
 import { useAuth } from "../context/useAuth";
 
 import "./Login.css";
@@ -15,12 +18,22 @@ import "./Login.css";
 function Login() {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
 
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
+    const [forgotEmail, setForgotEmail] = useState("");
+    const [resetToken, setResetToken] = useState("");
+    const [newPassword, setNewPassword] = useState("");
+    const [confirmNewPassword, setConfirmNewPassword] = useState("");
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+    const [message, setMessage] = useState("");
+    const [mode, setMode] = useState("login"); // login | forgot | reset
+
     const navigate = useNavigate();
-    const { loginUser } = useAuth();
+    const { user, loginUser } = useAuth();
 
     const handleSubmit = async (event) => {
         event.preventDefault();
@@ -29,6 +42,37 @@ function Login() {
         setLoading(true);
 
         try {
+            if (mode === "forgot") {
+                const response = await forgotPassword({
+                    email: forgotEmail,
+                    estateId: user?.estateId ?? null,
+                });
+
+                setMessage(response?.message || "If this email exists, a reset link has been sent.");
+                setResetToken(response?.token || "");
+                setMode("reset");
+                return;
+            }
+
+            if (mode === "reset") {
+                if (newPassword !== confirmNewPassword) {
+                    setError("New passwords do not match.");
+                    return;
+                }
+
+                const response = await resetPassword({
+                    token: resetToken,
+                    newPassword: newPassword,
+                });
+
+                setMessage(response?.message || "Password reset successfully.");
+                setMode("login");
+                setResetToken("");
+                setNewPassword("");
+                setConfirmNewPassword("");
+                return;
+            }
+
             const authData = await login(username, password);
 
             /*
@@ -137,7 +181,7 @@ function Login() {
                                 onSubmit={handleSubmit}
                             >
 
-                                {/* USERNAME */}
+                                {mode === "login" && (
 
                                 <div className="login-field">
 
@@ -170,9 +214,10 @@ function Login() {
                                     </div>
 
                                 </div>
+                                )}
 
 
-                                {/* PASSWORD */}
+                                {mode === "login" && (
 
                                 <div className="login-field">
 
@@ -189,7 +234,7 @@ function Login() {
 
                                         <input
                                             id="password"
-                                            type="password"
+                                            type={showPassword ? "text" : "password"}
                                             value={password}
                                             onChange={(event) =>
                                                 setPassword(
@@ -200,11 +245,149 @@ function Login() {
                                             autoComplete="current-password"
                                             disabled={loading}
                                             required
+                                            style={showPassword ? { paddingRight: "44px" } : undefined}
+                                        />
+
+                                        <button
+                                            type="button"
+                                            className="login-password-toggle"
+                                            onClick={() => setShowPassword((value) => !value)}
+                                            aria-label={showPassword ? "Hide password" : "Show password"}
+                                        >
+                                            {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+                                        </button>
+
+                                    </div>
+
+                                </div>
+                                )}
+
+
+                                {mode === "forgot" && (
+
+                                <div className="login-field">
+
+                                    <label htmlFor="forgot-email">
+                                        Email
+                                    </label>
+
+                                    <div className="login-input-wrapper">
+
+                                        <Mail size={19} className="login-input-icon" />
+
+                                        <input
+                                            id="forgot-email"
+                                            type="email"
+                                            value={forgotEmail}
+                                            onChange={(event) => setForgotEmail(event.target.value)}
+                                            placeholder="Enter your email"
+                                            autoComplete="email"
+                                            disabled={loading}
+                                            required
                                         />
 
                                     </div>
 
                                 </div>
+                                )}
+
+                                {mode === "reset" && (
+
+                                <>
+                                    <div className="login-field">
+
+                                        <label htmlFor="reset-token">
+                                            Reset link
+                                        </label>
+
+                                        <div className="login-input-wrapper">
+
+                                            <LockKeyhole size={19} className="login-input-icon" />
+
+                                            <input
+                                                id="reset-token"
+                                                type="text"
+                                                value={resetToken}
+                                                onChange={(event) => setResetToken(event.target.value)}
+                                                placeholder="Paste the reset link"
+                                                disabled={loading}
+                                            />
+
+                                        </div>
+
+                                    </div>
+
+                                    <div className="login-field">
+
+                                        <label htmlFor="reset-password">
+                                            New password
+                                        </label>
+
+                                        <div className="login-input-wrapper">
+
+                                            <LockKeyhole size={19} className="login-input-icon" />
+
+                                            <input
+                                                id="reset-password"
+                                                type={showNewPassword ? "text" : "password"}
+                                                value={newPassword}
+                                                onChange={(event) => setNewPassword(event.target.value)}
+                                                placeholder="Enter new password"
+                                                autoComplete="new-password"
+                                                disabled={loading}
+                                                required
+                                                style={showNewPassword ? { paddingRight: "44px" } : undefined}
+                                            />
+
+                                            <button
+                                                type="button"
+                                                className="login-password-toggle"
+                                                onClick={() => setShowNewPassword((value) => !value)}
+                                                aria-label={showNewPassword ? "Hide password" : "Show password"}
+                                            >
+                                                {showNewPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+                                            </button>
+
+                                        </div>
+
+                                    </div>
+
+                                    <div className="login-field">
+
+                                        <label htmlFor="reset-confirm">
+                                            Confirm new password
+                                        </label>
+
+                                        <div className="login-input-wrapper">
+
+                                            <LockKeyhole size={19} className="login-input-icon" />
+
+                                            <input
+                                                id="reset-confirm"
+                                                type={showConfirmNewPassword ? "text" : "password"}
+                                                value={confirmNewPassword}
+                                                onChange={(event) => setConfirmNewPassword(event.target.value)}
+                                                placeholder="Confirm new password"
+                                                autoComplete="new-password"
+                                                disabled={loading}
+                                                required
+                                                style={showConfirmNewPassword ? { paddingRight: "44px" } : undefined}
+                                            />
+
+                                            <button
+                                                type="button"
+                                                className="login-password-toggle"
+                                                onClick={() => setShowConfirmNewPassword((value) => !value)}
+                                                aria-label={showConfirmNewPassword ? "Hide password" : "Show password"}
+                                            >
+                                                {showConfirmNewPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+                                            </button>
+
+                                        </div>
+
+                                    </div>
+                                </>
+                                )}
 
 
                                 {/* ERROR */}
@@ -212,6 +395,13 @@ function Login() {
                                 {error && (
                                     <div className="login-error">
                                         {error}
+                                    </div>
+                                )}
+
+
+                                {message && (
+                                    <div className="login-message">
+                                        {message}
                                     </div>
                                 )}
 
@@ -224,7 +414,25 @@ function Login() {
                                     disabled={loading}
                                 >
 
-                                    {loading ? (
+                                    {mode === "forgot" ? (
+                                        loading ? (
+                                            <>
+                                                <span className="login-spinner"></span>
+                                                Sending reset...
+                                            </>
+                                        ) : (
+                                            "Send reset link"
+                                        )
+                                    ) : mode === "reset" ? (
+                                        loading ? (
+                                            <>
+                                                <span className="login-spinner"></span>
+                                                Resetting...
+                                            </>
+                                        ) : (
+                                            "Reset password"
+                                        )
+                                    ) : loading ? (
                                         <>
                                             <span className="login-spinner"></span>
                                             Signing in...
@@ -236,6 +444,26 @@ function Login() {
                                 </button>
 
                             </form>
+
+
+                            {mode === "login" && (
+
+                                <div className="login-forgot-row">
+
+                                    <button
+                                        type="button"
+                                        className="login-forgot-link"
+                                        onClick={() => {
+                                            setMode("forgot");
+                                            setError("");
+                                            setMessage("");
+                                        }}
+                                    >
+                                        Forgot Password?
+                                    </button>
+
+                                </div>
+                            )}
 
 
                             {/* SECURITY NOTE */}

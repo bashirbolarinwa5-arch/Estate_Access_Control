@@ -178,7 +178,8 @@ public class AuthService {
                 token,
                 user.getUsername(),
                 user.getRole(),
-                Boolean.TRUE.equals(user.getMustChangePassword())
+                Boolean.TRUE.equals(user.getMustChangePassword()),
+                user.getEstate() != null ? user.getEstate().getId() : null
         );
 
     }

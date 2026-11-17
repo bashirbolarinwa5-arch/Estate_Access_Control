@@ -14,6 +14,8 @@ import {
     UserPlus,
     Users,
     X,
+    Eye,
+    EyeOff,
 } from "lucide-react";
 
 import { useToast } from "./components/useToast";
@@ -136,6 +138,7 @@ export default function ResidentsPage() {
     const [resetResult, setResetResult] = useState(null);
 
     const [form, setForm] = useState(emptyForm);
+    const [showResidentPassword, setShowResidentPassword] = useState(false);
 
     // Keep the page behind the modal from scrolling while it is open.
     useEffect(() => {
@@ -897,6 +900,35 @@ export default function ResidentsPage() {
     box-shadow: 0 0 0 4px rgba(52,116,255,.09);
 }
 
+.resident-field.password-field {
+    position: relative;
+}
+
+.resident-field.password-field input[type="password"] {
+    padding-right: 42px;
+}
+
+.resident-field.password-field .resident-password-toggle {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #8996aa;
+    cursor: pointer;
+    z-index: 3;
+}
+
+.resident-field.password-field .resident-password-toggle:hover {
+    color: #3474ff;
+}
+
 .resident-account-section {
     grid-column: 1 / -1;
     margin-top: 4px;
@@ -1410,17 +1442,27 @@ export default function ResidentsPage() {
                                                     />
                                                 </div>
 
-                                                <div className="resident-field">
+                                                <div className="resident-field password-field">
                                                     <label>Password</label>
 
                                                     <input
-                                                        type="password"
+                                                        type={showResidentPassword ? "text" : "password"}
                                                         name="password"
                                                         value={form.password}
                                                         onChange={handleChange}
                                                         placeholder="Enter password"
                                                         autoComplete="new-password"
+                                                        style={showResidentPassword ? { paddingRight: "42px" } : undefined}
                                                     />
+
+                                                    <button
+                                                        type="button"
+                                                        className="resident-password-toggle"
+                                                        onClick={() => setShowResidentPassword((value) => !value)}
+                                                        aria-label={showResidentPassword ? "Hide password" : "Show password"}
+                                                    >
+                                                        {showResidentPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                                                    </button>
                                                 </div>
 
                                             </div>

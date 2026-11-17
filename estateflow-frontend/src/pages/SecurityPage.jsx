@@ -18,6 +18,8 @@ import {
     Users,
     Clock3,
     ClipboardCheck,
+    Eye,
+    EyeOff,
 } from "lucide-react";
 
 import api from "../services/api";
@@ -128,6 +130,7 @@ function SecurityPage() {
     const [securityEmail, setSecurityEmail] = useState("");
     const [securityUsername, setSecurityUsername] = useState("");
     const [securityPassword, setSecurityPassword] = useState("");
+    const [showSecurityPassword, setShowSecurityPassword] = useState(false);
 
     // Resident data for walk-in visits
     const [residents, setResidents] = useState([]);
@@ -1908,14 +1911,23 @@ return (
                                 <div className="security-form-group">
                                     <label>Password</label>
                                     <input
-                                        type="password"
+                                        type={showSecurityPassword ? "text" : "password"}
                                         value={securityPassword}
                                         onChange={(event) => setSecurityPassword(event.target.value)}
                                         placeholder="Create password"
                                         disabled={savingSecurity}
                                         autoComplete="new-password"
                                         required
+                                        style={showSecurityPassword ? { paddingRight: "44px" } : undefined}
                                     />
+                                    <button
+                                        type="button"
+                                        className="security-password-toggle"
+                                        onClick={() => setShowSecurityPassword((value) => !value)}
+                                        aria-label={showSecurityPassword ? "Hide password" : "Show password"}
+                                    >
+                                        {showSecurityPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                                    </button>
                                 </div>
                             </>
                         )}
@@ -2249,9 +2261,17 @@ const securityStyles = `
 }
 .security-modal-form { padding: 24px 25px 25px; }
 .security-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-.security-form-group { margin-bottom: 17px; }
+.security-form-group { position: relative; margin-bottom: 17px; }
 .security-form-group label { display: block; margin-bottom: 7px; font-size: 12px; font-weight: 700; color: #344159; }
 .security-form-group input:disabled, .security-form-group select:disabled { background: #f8fafc; cursor: not-allowed; }
+.security-form-group input[type="password"] { padding-right: 42px; }
+.security-form-group .security-password-toggle {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    display: flex; align-items: center; justify-content: center; padding: 6px;
+    border: none; border-radius: 8px; background: transparent; color: #8a99b0;
+    cursor: pointer; z-index: 3;
+}
+.security-form-group .security-password-toggle:hover { color: #5b8def; }
 .security-walkin-note {
     display: flex; align-items: flex-start; gap: 10px; padding: 13px;
     border: 1px solid #fde68a; border-radius: 10px; background: #fffbeb;

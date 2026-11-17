@@ -19,4 +19,11 @@ public class LoginResponse {
      */
     private Boolean mustChangePassword;
 
+    /*
+     * The estate this account belongs to. Returned with the
+     * login response so the client can scope self-service
+     * password reset requests to the right estate.
+     */
+    private Long estateId;
+
 }

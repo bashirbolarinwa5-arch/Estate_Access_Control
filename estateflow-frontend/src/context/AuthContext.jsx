@@ -49,6 +49,12 @@ export function AuthProvider({ children }) {
              */
             mustChangePassword:
                 Boolean(authData.mustChangePassword),
+
+            /*
+             * The estate this account belongs to — used to
+             * scope forgot/reset password flows correctly.
+             */
+            estateId: authData.estateId ?? null,
         };
 
         localStorage.setItem(

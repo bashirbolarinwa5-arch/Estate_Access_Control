@@ -69,3 +69,65 @@ export async function register(
     return data;
 }
 
+export async function forgotPassword({ email, estateId }) {
+    const response = await fetch(
+        `${API_BASE_URL}/api/auth/forgot-password`,
+        {
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json",
+            },
+
+            body: JSON.stringify({
+                email,
+                estateId,
+            }),
+        }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            data.message ||
+            "Could not process the password reset request"
+        );
+    }
+
+    const authData = data.data || data;
+
+    return authData;
+}
+
+export async function resetPassword({ token, newPassword }) {
+    const response = await fetch(
+        `${API_BASE_URL}/api/auth/reset-password`,
+        {
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json",
+            },
+
+            body: JSON.stringify({
+                token,
+                newPassword,
+            }),
+        }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(
+            data.message ||
+            "Password reset failed"
+        );
+    }
+
+    const authData = data.data || data;
+
+    return authData;
+}
+

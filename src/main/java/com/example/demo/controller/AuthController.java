@@ -1,24 +1,32 @@
 package com.example.demo.controller;
 
 import com.example.demo.entity.User;
+import com.example.demo.response.ForgotPasswordRequest;
 import com.example.demo.response.LoginRequest;
+import com.example.demo.response.LoginResponse;
 import com.example.demo.response.RegisterRequest;
 import com.example.demo.response.RegisterResponse;
+import com.example.demo.response.ResetPasswordRequest;
 import com.example.demo.service.AuthService;
+import com.example.demo.service.PasswordResetService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import com.example.demo.response.LoginResponse;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
 
     private final AuthService authService;
+    private final PasswordResetService passwordResetService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, PasswordResetService passwordResetService) {
         this.authService = authService;
+        this.passwordResetService = passwordResetService;
     }
 
     @PostMapping("/register")
@@ -52,6 +60,26 @@ public class AuthController {
         );
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, Object>> forgotPassword(
+            @RequestBody ForgotPasswordRequest request) {
+
+        return ResponseEntity.ok(passwordResetService.requestReset(
+                request.getEmail(),
+                request.getEstateId()));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Map<String, Object>> resetPassword(
+            @RequestBody ResetPasswordRequest request) {
+
+        passwordResetService.resetPassword(
+                request.getToken(),
+                request.getNewPassword());
+
+        return ResponseEntity.ok(Map.of("message", "Password reset successfully"));
     }
 
 }

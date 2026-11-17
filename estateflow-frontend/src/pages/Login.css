@@ -398,6 +398,68 @@
             0 0 0 4px rgba(37, 99, 235, 0.10);
 }
 
+.login-input-wrapper input[type="password"] {
+    padding-right: 46px;
+}
+
+.login-password-toggle {
+    position: absolute;
+
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 6px;
+
+    border: none;
+    border-radius: 8px;
+
+    background: transparent;
+
+    color: #91a0b7;
+
+    cursor: pointer;
+
+    z-index: 3;
+}
+
+.login-password-toggle:hover {
+    color: #2563eb;
+}
+
+.login-forgot-row {
+    width: 100%;
+
+    display: flex;
+    justify-content: flex-end;
+}
+
+.login-forgot-link {
+    border: none;
+    background: transparent;
+
+    padding: 0;
+
+    color: #2563eb;
+
+    font-family: inherit;
+
+    font-size: 13px;
+    font-weight: 650;
+
+    cursor: pointer;
+
+    text-align: right;
+}
+
+.login-forgot-link:hover {
+    text-decoration: underline;
+}
+
 
 /* =========================================================
    ERROR
@@ -419,6 +481,26 @@
     font-size: 13px;
 
     line-height: 1.5;
+}
+
+.login-message {
+    width: 100%;
+
+    padding: 12px 14px;
+
+    border: 1px solid #bfdbfe;
+
+    border-radius: 10px;
+
+    background: #eff6ff;
+
+    color: #1d4ed8;
+
+    font-size: 13px;
+
+    line-height: 1.5;
+
+    text-align: center;
 }
 
 

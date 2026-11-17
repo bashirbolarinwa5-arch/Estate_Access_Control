@@ -18,6 +18,8 @@ public interface ResidentRepository extends JpaRepository<Resident, Long> {
     // Estate-scoped email uniqueness (resident -> user -> users.estate_id)
     boolean existsByEstateIdAndEmail(Long estateId, String email);
 
+    Optional<Resident> findByEstateIdAndEmail(Long estateId, String email);
+
     List<Resident> findByFullNameContainingIgnoreCase(String fullName);
 
     List<Resident> findByHouseNumberContainingIgnoreCase(String houseNumber);

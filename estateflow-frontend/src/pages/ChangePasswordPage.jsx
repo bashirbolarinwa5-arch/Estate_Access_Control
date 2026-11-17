@@ -5,7 +5,7 @@ import api from "../services/api";
 import { useAuth } from "../context/useAuth";
 import { useToast } from "../components/useToast";
 
-import { LockKeyhole, KeyRound } from "lucide-react";
+import { LockKeyhole, KeyRound, Eye, EyeOff } from "lucide-react";
 
 /*
  * Self-service password change, available to every role.
@@ -23,6 +23,9 @@ function ChangePasswordPage() {
     const [currentPassword, setCurrentPassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
+    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     const [fieldError, setFieldError] = useState("");
     const [saving, setSaving] = useState(false);
@@ -193,6 +196,31 @@ function ChangePasswordPage() {
                     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
                 }
 
+                .change-password-field input[type="password"] {
+                    padding-right: 40px;
+                }
+
+                .change-password-toggle {
+                    position: absolute;
+                    right: 10px;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 6px;
+                    border: none;
+                    border-radius: 8px;
+                    background: transparent;
+                    color: #8a98ad;
+                    cursor: pointer;
+                    z-index: 3;
+                }
+
+                .change-password-toggle:hover {
+                    color: #3b82f6;
+                }
+
                 .change-password-error {
                     background: #fef2f2;
                     border: 1px solid #fecaca;
@@ -270,7 +298,7 @@ function ChangePasswordPage() {
                         <LockKeyhole size={16} />
                         <input
                             id="currentPassword"
-                            type="password"
+                            type={showCurrentPassword ? "text" : "password"}
                             value={currentPassword}
                             onChange={(event) =>
                                 setCurrentPassword(
@@ -280,7 +308,16 @@ function ChangePasswordPage() {
                             autoComplete="current-password"
                             maxLength={72}
                             disabled={saving}
+                            style={showCurrentPassword ? { paddingRight: "38px" } : undefined}
                         />
+                        <button
+                            type="button"
+                            className="change-password-toggle"
+                            onClick={() => setShowCurrentPassword((value) => !value)}
+                            aria-label={showCurrentPassword ? "Hide password" : "Show password"}
+                        >
+                            {showCurrentPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
                     </div>
                 </div>
 
@@ -293,7 +330,7 @@ function ChangePasswordPage() {
                         <KeyRound size={16} />
                         <input
                             id="newPassword"
-                            type="password"
+                            type={showNewPassword ? "text" : "password"}
                             value={newPassword}
                             onChange={(event) =>
                                 setNewPassword(event.target.value)
@@ -301,7 +338,16 @@ function ChangePasswordPage() {
                             autoComplete="new-password"
                             maxLength={72}
                             disabled={saving}
+                            style={showNewPassword ? { paddingRight: "38px" } : undefined}
                         />
+                        <button
+                            type="button"
+                            className="change-password-toggle"
+                            onClick={() => setShowNewPassword((value) => !value)}
+                            aria-label={showNewPassword ? "Hide password" : "Show password"}
+                        >
+                            {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
                     </div>
                 </div>
 
@@ -314,7 +360,7 @@ function ChangePasswordPage() {
                         <KeyRound size={16} />
                         <input
                             id="confirmPassword"
-                            type="password"
+                            type={showConfirmPassword ? "text" : "password"}
                             value={confirmPassword}
                             onChange={(event) =>
                                 setConfirmPassword(
@@ -324,7 +370,16 @@ function ChangePasswordPage() {
                             autoComplete="new-password"
                             maxLength={72}
                             disabled={saving}
+                            style={showConfirmPassword ? { paddingRight: "38px" } : undefined}
                         />
+                        <button
+                            type="button"
+                            className="change-password-toggle"
+                            onClick={() => setShowConfirmPassword((value) => !value)}
+                            aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                        >
+                            {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
                     </div>
                 </div>
 
