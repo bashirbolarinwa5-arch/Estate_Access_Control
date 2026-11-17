@@ -10,7 +10,7 @@ import {
     Mail,
 } from "lucide-react";
 
-import { login, forgotPassword, resetPassword } from "../services/auth";
+import { login, forgotPassword } from "../services/auth";
 import { useAuth } from "../context/useAuth";
 
 import "./Login.css";
@@ -24,13 +24,8 @@ function Login() {
     const [loading, setLoading] = useState(false);
 
     const [forgotEmail, setForgotEmail] = useState("");
-    const [resetToken, setResetToken] = useState("");
-    const [newPassword, setNewPassword] = useState("");
-    const [confirmNewPassword, setConfirmNewPassword] = useState("");
-    const [showNewPassword, setShowNewPassword] = useState(false);
-    const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
     const [message, setMessage] = useState("");
-    const [mode, setMode] = useState("login"); // login | forgot | reset
+    const [mode, setMode] = useState("login"); // login | forgot
 
     const navigate = useNavigate();
     const { user, loginUser } = useAuth();
@@ -48,28 +43,15 @@ function Login() {
                     estateId: user?.estateId ?? null,
                 });
 
-                setMessage(response?.message || "If this email exists, a reset link has been sent.");
-                setResetToken(response?.token || "");
-                setMode("reset");
-                return;
-            }
-
-            if (mode === "reset") {
-                if (newPassword !== confirmNewPassword) {
-                    setError("New passwords do not match.");
-                    return;
-                }
-
-                const response = await resetPassword({
-                    token: resetToken,
-                    newPassword: newPassword,
-                });
-
-                setMessage(response?.message || "Password reset successfully.");
-                setMode("login");
-                setResetToken("");
-                setNewPassword("");
-                setConfirmNewPassword("");
+                /*
+                 * The server never returns the token — it only goes out by
+                 * email. The UI shows the same generic message for every
+                 * address so the form cannot be used to enumerate accounts.
+                 */
+                setMessage(
+                    response?.message ||
+                    "If this email exists for the estate, a password reset link has been sent."
+                );
                 return;
             }
 
@@ -291,104 +273,6 @@ function Login() {
                                 </div>
                                 )}
 
-                                {mode === "reset" && (
-
-                                <>
-                                    <div className="login-field">
-
-                                        <label htmlFor="reset-token">
-                                            Reset link
-                                        </label>
-
-                                        <div className="login-input-wrapper">
-
-                                            <LockKeyhole size={19} className="login-input-icon" />
-
-                                            <input
-                                                id="reset-token"
-                                                type="text"
-                                                value={resetToken}
-                                                onChange={(event) => setResetToken(event.target.value)}
-                                                placeholder="Paste the reset link"
-                                                disabled={loading}
-                                            />
-
-                                        </div>
-
-                                    </div>
-
-                                    <div className="login-field">
-
-                                        <label htmlFor="reset-password">
-                                            New password
-                                        </label>
-
-                                        <div className="login-input-wrapper">
-
-                                            <LockKeyhole size={19} className="login-input-icon" />
-
-                                            <input
-                                                id="reset-password"
-                                                type={showNewPassword ? "text" : "password"}
-                                                value={newPassword}
-                                                onChange={(event) => setNewPassword(event.target.value)}
-                                                placeholder="Enter new password"
-                                                autoComplete="new-password"
-                                                disabled={loading}
-                                                required
-                                                style={showNewPassword ? { paddingRight: "44px" } : undefined}
-                                            />
-
-                                            <button
-                                                type="button"
-                                                className="login-password-toggle"
-                                                onClick={() => setShowNewPassword((value) => !value)}
-                                                aria-label={showNewPassword ? "Hide password" : "Show password"}
-                                            >
-                                                {showNewPassword ? <EyeOff size={19} /> : <Eye size={19} />}
-                                            </button>
-
-                                        </div>
-
-                                    </div>
-
-                                    <div className="login-field">
-
-                                        <label htmlFor="reset-confirm">
-                                            Confirm new password
-                                        </label>
-
-                                        <div className="login-input-wrapper">
-
-                                            <LockKeyhole size={19} className="login-input-icon" />
-
-                                            <input
-                                                id="reset-confirm"
-                                                type={showConfirmNewPassword ? "text" : "password"}
-                                                value={confirmNewPassword}
-                                                onChange={(event) => setConfirmNewPassword(event.target.value)}
-                                                placeholder="Confirm new password"
-                                                autoComplete="new-password"
-                                                disabled={loading}
-                                                required
-                                                style={showConfirmNewPassword ? { paddingRight: "44px" } : undefined}
-                                            />
-
-                                            <button
-                                                type="button"
-                                                className="login-password-toggle"
-                                                onClick={() => setShowConfirmNewPassword((value) => !value)}
-                                                aria-label={showConfirmNewPassword ? "Hide password" : "Show password"}
-                                            >
-                                                {showConfirmNewPassword ? <EyeOff size={19} /> : <Eye size={19} />}
-                                            </button>
-
-                                        </div>
-
-                                    </div>
-                                </>
-                                )}
-
 
                                 {/* ERROR */}
 
@@ -423,15 +307,6 @@ function Login() {
                                         ) : (
                                             "Send reset link"
                                         )
-                                    ) : mode === "reset" ? (
-                                        loading ? (
-                                            <>
-                                                <span className="login-spinner"></span>
-                                                Resetting...
-                                            </>
-                                        ) : (
-                                            "Reset password"
-                                        )
                                     ) : loading ? (
                                         <>
                                             <span className="login-spinner"></span>
@@ -460,6 +335,25 @@ function Login() {
                                         }}
                                     >
                                         Forgot Password?
+                                    </button>
+
+                                </div>
+                            )}
+
+                            {mode === "forgot" && (
+
+                                <div className="login-forgot-row">
+
+                                    <button
+                                        type="button"
+                                        className="login-forgot-link"
+                                        onClick={() => {
+                                            setMode("login");
+                                            setError("");
+                                            setMessage("");
+                                        }}
+                                    >
+                                        Back to sign in
                                     </button>
 
                                 </div>

@@ -1,12 +1,14 @@
 package com.example.demo.service;
 
-import com.example.demo.entity.Estate;
 import com.example.demo.entity.PasswordResetToken;
 import com.example.demo.entity.User;
 import com.example.demo.repository.PasswordResetTokenRepository;
 import com.example.demo.repository.ResidentRepository;
 import com.example.demo.repository.UserRepository;
 import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +23,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class PasswordResetService {
 
+    private static final Logger log = LoggerFactory.getLogger(PasswordResetService.class);
+
     private static final int MAX_RESET_ATTEMPTS_PER_HOUR = 3;
     private static final int RESET_TOKEN_VALIDITY_MINUTES = 30;
 
@@ -29,6 +33,8 @@ public class PasswordResetService {
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
     private final ActivityLogService activityLogService;
+    private final EmailService emailService;
+    private final String frontendUrl;
 
     private final Map<String, List<LocalDateTime>> resetRequestLog =
             new ConcurrentHashMap<>();
@@ -38,20 +44,26 @@ public class PasswordResetService {
             ResidentRepository residents,
             UserRepository users,
             PasswordEncoder passwordEncoder,
-            ActivityLogService activityLogService) {
+            ActivityLogService activityLogService,
+            EmailService emailService,
+            @Value("${app.frontend-url:https://estate-access-control-phi.vercel.app}") String frontendUrl) {
 
         this.resetTokens = resetTokens;
         this.residents = residents;
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.activityLogService = activityLogService;
+        this.emailService = emailService;
+        this.frontendUrl = frontendUrl.replaceAll("/$", "");
     }
 
     /*
      * Forgot password: resolves the email inside a specific estate, then issues
-     * a single-use reset token that lives for 30 minutes. Unknown emails return
-     * the same generic response so the endpoint cannot be used to enumerate
-     * accounts.
+     * a single-use reset token that lives for 30 minutes.
+     *
+     * The raw token is delivered ONLY by email. It is never written to the
+     * response, the logs, or the UI. Unknown emails return the same generic
+     * response so the endpoint cannot be used to enumerate accounts.
      */
     @Transactional
     public Map<String, Object> requestReset(String email, Long estateId) {
@@ -63,8 +75,7 @@ public class PasswordResetService {
         String genericResponse =
                 "If this email exists for the estate, a password reset link has been sent.";
 
-        java.util.Map<String, Object> response =
-                new java.util.HashMap<>();
+        Map<String, Object> response = new java.util.HashMap<>();
         response.put("message", genericResponse);
 
         if (normalizedEmail.isEmpty() || estateId == null) {
@@ -107,14 +118,34 @@ public class PasswordResetService {
         token.setCreatedAt(now);
         resetTokens.save(token);
 
-        response.put("token", rawToken);
+        String resetUrl = frontendUrl
+                + "/reset-password?token="
+                + java.net.URLEncoder.encode(rawToken, StandardCharsets.UTF_8);
 
-        activityLogService.logForUser(
-                user,
-                user.getUsername(),
-                "PASSWORD_RESET_REQUEST",
-                "Password reset requested for " + normalizedEmail
-                        + " (token issued: " + (token.getExpiresAt().isAfter(now) ? "yes" : "no") + ")");
+        /*
+         * Delivery failure must not change the response (it would leak which
+         * addresses exist), but it must be visible to operators.
+         */
+        try {
+            emailService.sendPasswordResetEmail(resident.getEmail(), resetUrl);
+
+            activityLogService.logForUser(
+                    user,
+                    user.getUsername(),
+                    "PASSWORD_RESET_REQUEST",
+                    "Password reset link emailed to " + resident.getEmail());
+
+        } catch (Exception mailError) {
+
+            log.error("Password reset email could not be delivered for {}: {}",
+                    resident.getEmail(), mailError.getMessage());
+
+            activityLogService.logForUser(
+                    user,
+                    user.getUsername(),
+                    "PASSWORD_RESET_EMAIL_FAILED",
+                    "Password reset link could not be emailed to " + resident.getEmail());
+        }
 
         return response;
     }
