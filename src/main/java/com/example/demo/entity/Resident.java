@@ -9,7 +9,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "resident", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_resident_estate_email", columnNames = {"user_id", "email"})
+        @UniqueConstraint(name = "uk_resident_estate_email", columnNames = {"estate_id", "email"})
 })
 @Data
 public class Resident {
@@ -25,6 +25,14 @@ public class Resident {
     @JoinColumn(name = "user_id", unique = true)
     private User user;
 
+    /*
+     * Denormalized estate scope used for per-estate uniqueness. The owning
+     * user is resident.user_id -> users.id -> users.estate_id, and this column
+     * carries the same estate for fast per-estate lookups and constraints.
+     */
+    @Column(name = "estate_id")
+    private Long estateId;
+
     @OneToMany(mappedBy = "resident")
     @JsonManagedReference
     private List<Visitor> visitors;
@@ -36,9 +44,9 @@ public class Resident {
     private String houseNumber;
 
     /*
-     * Email is scoped per estate through the owning user (resident -> user ->
-     * users.estate_id). The database enforces (user_id, email) uniqueness so
-     * the same email can exist in different estates.
+     * Email is scoped per estate through the estateId column. The database
+     * enforces (estate_id, email) uniqueness so the same email can exist in
+     * different estates but not twice for the same estate.
      */
     @Column(nullable = false)
     private String email;

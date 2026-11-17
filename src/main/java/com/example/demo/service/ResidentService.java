@@ -105,8 +105,8 @@ public class ResidentService {
             cleanEmail = cleanUsername + "@estateflow.local";
         }
 
-        if (hasRealEmail && repository.existsByUserEstateAndEmail(
-                currentUserService.getRequiredEstate(), cleanEmail)) {
+        if (hasRealEmail && repository.existsByEstateIdAndEmail(
+                currentUserService.getRequiredEstate().getId(), cleanEmail)) {
 
             throw new RuntimeException("Email already exists");
         }
@@ -143,6 +143,7 @@ public class ResidentService {
         resident.setPhoneNumber(request.getPhoneNumber().trim());
         resident.setHouseNumber(request.getHouseNumber().trim());
         resident.setEmail(cleanEmail);
+        resident.setEstateId(currentUserService.getRequiredEstate().getId());
 
         resident.setUser(savedUser);
 
@@ -423,11 +424,8 @@ public class ResidentService {
 
         if (!existingResident.getEmail()
                 .equalsIgnoreCase(resident.getEmail())
-                && repository.existsByUserEstateAndEmail(
-                existingResident.getUser() == null
-                        ? null
-                        : existingResident.getUser().getEstate(),
-                resident.getEmail())) {
+                && repository.existsByEstateIdAndEmail(
+                existingResident.getEstateId(), resident.getEmail())) {
 
             throw new RuntimeException(
                     "Email already exists"
