@@ -2,6 +2,7 @@ package com.example.demo.service;
 
 import com.example.demo.entity.PasswordResetToken;
 import com.example.demo.entity.User;
+import com.example.demo.repository.EstateRepository;
 import com.example.demo.repository.PasswordResetTokenRepository;
 import com.example.demo.repository.ResidentRepository;
 import com.example.demo.repository.UserRepository;
@@ -31,6 +32,7 @@ public class PasswordResetService {
     private final PasswordResetTokenRepository resetTokens;
     private final ResidentRepository residents;
     private final UserRepository users;
+    private final EstateRepository estates;
     private final PasswordEncoder passwordEncoder;
     private final ActivityLogService activityLogService;
     private final EmailService emailService;
@@ -43,6 +45,7 @@ public class PasswordResetService {
             PasswordResetTokenRepository resetTokens,
             ResidentRepository residents,
             UserRepository users,
+            EstateRepository estates,
             PasswordEncoder passwordEncoder,
             ActivityLogService activityLogService,
             EmailService emailService,
@@ -51,6 +54,7 @@ public class PasswordResetService {
         this.resetTokens = resetTokens;
         this.residents = residents;
         this.users = users;
+        this.estates = estates;
         this.passwordEncoder = passwordEncoder;
         this.activityLogService = activityLogService;
         this.emailService = emailService;
@@ -66,7 +70,7 @@ public class PasswordResetService {
      * response so the endpoint cannot be used to enumerate accounts.
      */
     @Transactional
-    public Map<String, Object> requestReset(String email, Long estateId) {
+    public Map<String, Object> requestReset(String email, String estateCode, Long estateId) {
 
         String normalizedEmail = email == null
                 ? ""
@@ -78,7 +82,21 @@ public class PasswordResetService {
         Map<String, Object> response = new java.util.HashMap<>();
         response.put("message", genericResponse);
 
-        if (normalizedEmail.isEmpty() || estateId == null) {
+        /*
+         * Resolve the estate from the public estate code when an explicit
+         * id was not supplied. An unknown code behaves exactly like an
+         * unknown email: generic response, no token, no enumeration.
+         */
+        Long resolvedEstateId = estateId;
+
+        if (resolvedEstateId == null && estateCode != null && !estateCode.isBlank()) {
+            var estate = estates.findByEstateCode(estateCode.trim().toUpperCase());
+            if (estate != null) {
+                resolvedEstateId = estate.getId();
+            }
+        }
+
+        if (normalizedEmail.isEmpty() || resolvedEstateId == null) {
             return response;
         }
 
@@ -95,7 +113,7 @@ public class PasswordResetService {
         }
         attempts.add(now);
 
-        var resident = residents.findByEstateIdAndEmail(estateId, normalizedEmail).orElse(null);
+        var resident = residents.findByEstateIdAndEmail(resolvedEstateId, normalizedEmail).orElse(null);
 
         if (resident == null || resident.getUser() == null) {
             activityLogService.log(

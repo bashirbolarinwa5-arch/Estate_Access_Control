@@ -68,6 +68,7 @@ public class AuthController {
 
         return ResponseEntity.ok(passwordResetService.requestReset(
                 request.getEmail(),
+                request.getEstateCode(),
                 request.getEstateId()));
     }
 

@@ -24,11 +24,12 @@ function Login() {
     const [loading, setLoading] = useState(false);
 
     const [forgotEmail, setForgotEmail] = useState("");
+    const [forgotEstateCode, setForgotEstateCode] = useState("");
     const [message, setMessage] = useState("");
     const [mode, setMode] = useState("login"); // login | forgot
 
     const navigate = useNavigate();
-    const { user, loginUser } = useAuth();
+    const { loginUser } = useAuth();
 
     const handleSubmit = async (event) => {
         event.preventDefault();
@@ -40,7 +41,7 @@ function Login() {
             if (mode === "forgot") {
                 const response = await forgotPassword({
                     email: forgotEmail,
-                    estateId: user?.estateId ?? null,
+                    estateCode: forgotEstateCode.trim().toUpperCase(),
                 });
 
                 /*
@@ -148,11 +149,13 @@ function Login() {
                                 </div>
 
                                 <h2>
-                                    Welcome back
+                                    {mode === "forgot" ? "Forgot password" : "Welcome back"}
                                 </h2>
 
                                 <p>
-                                    Sign in to your EstateFlow account
+                                    {mode === "forgot"
+                                        ? "We'll email you a secure reset link"
+                                        : "Sign in to your EstateFlow account"}
                                 </p>
 
                             </div>
@@ -247,6 +250,33 @@ function Login() {
 
                                 {mode === "forgot" && (
 
+                                <>
+
+                                <div className="login-field">
+
+                                    <label htmlFor="forgot-estate-code">
+                                        Estate code
+                                    </label>
+
+                                    <div className="login-input-wrapper">
+
+                                        <ShieldCheck size={19} className="login-input-icon" />
+
+                                        <input
+                                            id="forgot-estate-code"
+                                            type="text"
+                                            value={forgotEstateCode}
+                                            onChange={(event) => setForgotEstateCode(event.target.value)}
+                                            placeholder="e.g. EST001"
+                                            autoComplete="off"
+                                            disabled={loading}
+                                            required
+                                        />
+
+                                    </div>
+
+                                </div>
+
                                 <div className="login-field">
 
                                     <label htmlFor="forgot-email">
@@ -271,6 +301,9 @@ function Login() {
                                     </div>
 
                                 </div>
+
+                                </>
+
                                 )}
 
 
