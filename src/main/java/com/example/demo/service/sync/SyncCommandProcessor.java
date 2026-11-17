@@ -99,7 +99,6 @@ public class SyncCommandProcessor {
         String phone = requiredPhone(payload, "phoneNumber");
         String houseNumber = requiredText(payload, "houseNumber", 80);
         String username = requiredText(payload, "username", 80);
-        String password = requiredText(payload, "password", 200);
         String email = optionalText(payload, "email", 200);
         if (email.isBlank()) email = username + "@estateflow.local";
         if (users.existsByUsername(username)) throw rejected("Username already exists.");
@@ -108,11 +107,19 @@ public class SyncCommandProcessor {
         User account = new User();
         account.setPublicId(optionalUuid(payload, "userPublicId").orElseGet(UUID::randomUUID));
         account.setUsername(username);
-        account.setPassword(passwordEncoder.encode(password));
+        /*
+         * Administrators never set resident passwords, even from the
+         * offline queue: the account starts pending activation and the
+         * resident chooses the password through the emailed link.
+         *
+         * A single UUID stays inside BCrypt's 72-byte input limit.
+         */
+        account.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
         account.setRole(Role.ROLE_RESIDENT);
         account.setEstate(estate);
         account.setActive(true);
         account.setMustChangePassword(false);
+        account.setPendingActivation(true);
         User savedAccount = users.save(account);
 
         Resident resident = new Resident();
@@ -121,9 +128,10 @@ public class SyncCommandProcessor {
         resident.setPhoneNumber(phone);
         resident.setHouseNumber(houseNumber);
         resident.setEmail(email);
+        resident.setEstateId(estate.getId());
         resident.setUser(savedAccount);
         Resident saved = residents.save(resident);
-        activityLogService.log("ADMIN", "RESIDENT_CREATED", "Resident " + fullName + " was created");
+        activityLogService.log("ADMIN", "RESIDENT_CREATED", "Resident " + fullName + " was created (pending activation)");
         return new ProcessedCommand(saved.getId(), saved.getPublicId());
     }
 

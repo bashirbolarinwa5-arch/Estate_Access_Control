@@ -34,6 +34,7 @@ function ResetPasswordPage() {
 
     const [error, setError] = useState("");
     const [message, setMessage] = useState("");
+    const [username, setUsername] = useState("");
     const [loading, setLoading] = useState(false);
 
     const navigate = useNavigate();
@@ -61,6 +62,8 @@ function ResetPasswordPage() {
             setMessage(
                 response?.message || "Password reset successfully."
             );
+
+            setUsername(response?.username || "");
 
             setNewPassword("");
             setConfirmPassword("");
@@ -148,6 +151,13 @@ function ResetPasswordPage() {
                                     <div className="login-message">
                                         <CheckCircle2 size={16} /> {message}
                                     </div>
+
+                                    {username && (
+                                        <div className="reset-username">
+                                            <span>Your username</span>
+                                            <strong>{username}</strong>
+                                        </div>
+                                    )}
 
                                     <button
                                         className="login-button"

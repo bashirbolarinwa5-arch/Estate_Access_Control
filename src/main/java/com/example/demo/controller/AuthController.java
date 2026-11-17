@@ -66,21 +66,21 @@ public class AuthController {
     public ResponseEntity<Map<String, Object>> forgotPassword(
             @RequestBody ForgotPasswordRequest request) {
 
-        return ResponseEntity.ok(passwordResetService.requestReset(
+        return ResponseEntity.ok(passwordResetService.requestLink(
+                request.getIdentifier(),
                 request.getEmail(),
                 request.getEstateCode(),
-                request.getEstateId()));
+                request.getEstateId(),
+                request.getPurpose()));
     }
 
     @PostMapping("/reset-password")
     public ResponseEntity<Map<String, Object>> resetPassword(
             @RequestBody ResetPasswordRequest request) {
 
-        passwordResetService.resetPassword(
+        return ResponseEntity.ok(passwordResetService.resetPassword(
                 request.getToken(),
-                request.getNewPassword());
-
-        return ResponseEntity.ok(Map.of("message", "Password reset successfully"));
+                request.getNewPassword()));
     }
 
 }

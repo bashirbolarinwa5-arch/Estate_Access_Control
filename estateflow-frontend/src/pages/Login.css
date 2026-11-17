@@ -460,6 +460,17 @@
     text-decoration: underline;
 }
 
+/* The activation link is the primary path for a first-time
+   resident; "Forgot password?" sits under it, quieter. */
+.login-forgot-link.secondary {
+    color: #64748b;
+    font-weight: 600;
+}
+
+.login-forgot-row + .login-forgot-row {
+    margin-top: 10px;
+}
+
 
 /* =========================================================
    ERROR
@@ -501,6 +512,35 @@
     line-height: 1.5;
 
     text-align: center;
+}
+
+/* The username a resident needs in order to sign in after
+   activating or resetting. Only ever shown to the holder of the
+   emailed link. */
+.reset-username {
+    width: 100%;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    padding: 12px 14px;
+
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+
+    background: #f8fafc;
+
+    font-size: 12px;
+    color: #64748b;
+}
+
+.reset-username strong {
+    color: #0f172a;
+    font-size: 14px;
+    word-break: break-all;
+    text-align: right;
 }
 
 

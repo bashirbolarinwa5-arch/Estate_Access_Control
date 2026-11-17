@@ -12,14 +12,18 @@ import java.util.List;
  * the good ones. The result mirrors the incoming order so the
  * browser can line it up with the spreadsheet.
  *
- * temporaryPassword is present only when the server generated
- * one. Those accounts are forced to change it on first login.
+ * Resident imports never carry a password. Every created row is
+ * PENDING_ACTIVATION and activates itself through the emailed link.
+ * temporaryPassword is only used by the security-personnel import,
+ * where guards have no self-service onboarding.
  */
 public class BulkImportResult {
 
     private int created;
 
     private int failed;
+
+    private int pendingActivation;
 
     private List<RowResult> results = new ArrayList<>();
 
@@ -36,6 +40,10 @@ public class BulkImportResult {
 
         private String houseNumber;
 
+        /* PENDING_ACTIVATION for self-service resident accounts. */
+        private String activationStatus;
+
+        /* Security-personnel imports only. Never set for residents. */
         private String temporaryPassword;
 
         private String reason;
@@ -47,7 +55,13 @@ public class BulkImportResult {
         results.add(row);
 
         if (row.isSuccess()) {
+
             created++;
+
+            if ("PENDING_ACTIVATION".equals(row.getActivationStatus())) {
+                pendingActivation++;
+            }
+
         } else {
             failed++;
         }
@@ -59,6 +73,10 @@ public class BulkImportResult {
 
     public int getFailed() {
         return failed;
+    }
+
+    public int getPendingActivation() {
+        return pendingActivation;
     }
 
     public List<RowResult> getResults() {

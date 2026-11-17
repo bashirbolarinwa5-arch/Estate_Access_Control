@@ -69,7 +69,7 @@ export async function register(
     return data;
 }
 
-export async function forgotPassword({ email, estateCode }) {
+export async function forgotPassword({ email, identifier, estateCode, purpose }) {
     const response = await fetch(
         `${API_BASE_URL}/api/auth/forgot-password`,
         {
@@ -80,8 +80,9 @@ export async function forgotPassword({ email, estateCode }) {
             },
 
             body: JSON.stringify({
-                email,
+                identifier: identifier || email,
                 estateCode,
+                purpose,
             }),
         }
     );

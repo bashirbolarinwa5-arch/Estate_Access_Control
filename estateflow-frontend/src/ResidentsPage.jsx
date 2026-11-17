@@ -4,23 +4,20 @@ import {
     AlertCircle,
     CheckCircle2,
     Edit3,
-    KeyRound,
     Mail,
     Phone,
     Plus,
     RefreshCw,
     Search,
+    Send,
     Trash2,
     UserPlus,
     Users,
     X,
-    Eye,
-    EyeOff,
 } from "lucide-react";
 
 import { useToast } from "./components/useToast";
 import BulkImportModal from "./components/BulkImportModal";
-import TempPasswordModal from "./components/TempPasswordModal";
 
 const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL ||
@@ -32,7 +29,6 @@ const emptyForm = {
     houseNumber: "",
     email: "",
     username: "",
-    password: "",
 };
 
 function getAuth() {
@@ -118,6 +114,22 @@ function displayEmail(email) {
     return email;
 }
 
+/*
+ * Activation state comes from the linked account (read-only on the
+ * resident record). NEW rows are PENDING_ACTIVATION: they have no
+ * password and cannot sign in until the resident sets one.
+ */
+const STATUS_LABELS = {
+    PENDING_ACTIVATION: "Pending activation",
+    ACTIVE: "Active",
+    DISABLED: "Disabled",
+    NO_ACCOUNT: "No account",
+};
+
+function activationStatusOf(resident) {
+    return resident.activationStatus || "ACTIVE";
+}
+
 export default function ResidentsPage() {
     const { showSuccess, showError } = useToast();
 
@@ -134,11 +146,9 @@ export default function ResidentsPage() {
     const [showModal, setShowModal] = useState(false);
     const [editingResident, setEditingResident] = useState(null);
 
-    const [resettingId, setResettingId] = useState(null);
-    const [resetResult, setResetResult] = useState(null);
+    const [sendingId, setSendingId] = useState(null);
 
     const [form, setForm] = useState(emptyForm);
-    const [showResidentPassword, setShowResidentPassword] = useState(false);
 
     // Keep the page behind the modal from scrolling while it is open.
     useEffect(() => {
@@ -235,7 +245,6 @@ export default function ResidentsPage() {
             houseNumber: resident.houseNumber || "",
             email: resident.email || "",
             username: "",
-            password: "",
         });
 
         setError("");
@@ -296,20 +305,6 @@ export default function ResidentsPage() {
             return;
         }
 
-        if (!editingResident) {
-            if (!form.username.trim()) {
-                showError("Username is required.");
-                setError("Username is required.");
-                return;
-            }
-
-            if (!form.password.trim()) {
-                showError("Password is required.");
-                setError("Password is required.");
-                return;
-            }
-        }
-
         setSaving(true);
 
         const payload = {
@@ -319,9 +314,8 @@ export default function ResidentsPage() {
             email: form.email.trim(),
         };
 
-        if (!editingResident) {
+        if (!editingResident && form.username.trim()) {
             payload.username = form.username.trim();
-            payload.password = form.password;
         }
 
         try {
@@ -342,8 +336,8 @@ export default function ResidentsPage() {
                     body: JSON.stringify(payload),
                 });
 
-                setSuccess("Resident added successfully.");
-                showSuccess("Resident added successfully.");
+                setSuccess("Resident added. They can now activate their account.");
+                showSuccess("Resident added — pending activation.");
             }
 
             await loadResidents();
@@ -400,34 +394,31 @@ export default function ResidentsPage() {
         }
     }
 
-    async function handleResetPassword(resident) {
-        const confirmed = window.confirm(
-            `Reset the password for ${resident.fullName}? Their current password stops working immediately.`
-        );
-
-        if (!confirmed) return;
-
-        setResettingId(resident.id);
+    async function handleSendActivation(resident) {
+        setSendingId(resident.id);
 
         try {
             const response = await apiRequest(
-                `/resident/${resident.id}/reset-password`,
+                `/resident/${resident.id}/send-activation`,
                 { method: "POST" }
             );
 
             const data = getData(response);
 
-            setResetResult({
-                name: resident.fullName,
-                username: data?.username || "",
-                password: data?.temporaryPassword || "",
-            });
-
-            showSuccess("Password reset. Hand over the new temporary password.");
+            if (data?.sent === false) {
+                showError(
+                    data?.message ||
+                    "This resident has no deliverable email address on file."
+                );
+            } else {
+                showSuccess(
+                    data?.message || "Activation email sent."
+                );
+            }
         } catch (err) {
-            showError(err.message || "Unable to reset the password.");
+            showError(err.message || "Unable to send the activation email.");
         } finally {
-            setResettingId(null);
+            setSendingId(null);
         }
     }
 
@@ -613,7 +604,7 @@ export default function ResidentsPage() {
 
 .resident-table {
     width: 100%;
-    min-width: 780px;
+    min-width: 900px;
     border-collapse: collapse;
 }
 
@@ -684,6 +675,42 @@ export default function ResidentsPage() {
     color: #46536b;
     font-size: 12px;
     font-weight: 700;
+}
+
+/* Account activation state of the linked login account. */
+.resident-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 750;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+
+.resident-status.pending_activation {
+    background: #fff7ed;
+    border-color: #fed7aa;
+    color: #b45309;
+}
+
+.resident-status.active {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+    color: #15803d;
+}
+
+.resident-status.disabled {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #b42318;
+}
+
+.resident-status.no_account {
+    background: #f5f7fa;
+    border-color: #e2e8f0;
+    color: #64748b;
 }
 
 .resident-actions {
@@ -900,35 +927,6 @@ export default function ResidentsPage() {
     box-shadow: 0 0 0 4px rgba(52,116,255,.09);
 }
 
-.resident-field.password-field {
-    position: relative;
-}
-
-.resident-field.password-field input[type="password"] {
-    padding-right: 42px;
-}
-
-.resident-field.password-field .resident-password-toggle {
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 6px;
-    border: none;
-    border-radius: 8px;
-    background: transparent;
-    color: #8996aa;
-    cursor: pointer;
-    z-index: 3;
-}
-
-.resident-field.password-field .resident-password-toggle:hover {
-    color: #3474ff;
-}
-
 .resident-account-section {
     grid-column: 1 / -1;
     margin-top: 4px;
@@ -1106,20 +1104,21 @@ export default function ResidentsPage() {
                 key={showBulkModal ? "bulk-open" : "bulk-closed"}
                 open={showBulkModal}
                 onClose={() => setShowBulkModal(false)}
-                onCreated={() => loadResidents()}
+                onCreated={({ created, pendingActivation } = {}) => {
+                    loadResidents();
+
+                    if (created) {
+                        setSuccess(
+                            `${created} resident${created === 1 ? "" : "s"} created. ` +
+                            `${pendingActivation ?? created} need activation — ` +
+                            "no passwords were created or shared."
+                        );
+                    }
+                }}
                 kind="resident"
                 title="Import Residents"
-                subtitle="Upload your CSV or Excel sheet. Columns are mapped next, temporary passwords are generated, and each account must be changed at first login."
+                subtitle="Upload your CSV or Excel sheet. No password column is needed: every resident activates their own account with the email or phone number on record."
                 endpoint="/resident/bulk"
-            />
-
-            <TempPasswordModal
-                open={Boolean(resetResult)}
-                title="Resident password reset"
-                personName={resetResult?.name}
-                username={resetResult?.username}
-                password={resetResult?.password}
-                onClose={() => setResetResult(null)}
             />
 
             {error && (
@@ -1161,12 +1160,20 @@ export default function ResidentsPage() {
 
                 <div className="resident-summary-card">
                     <div className="resident-summary-icon">
-                        <UserPlus size={22} />
+                        <Send size={22} />
                     </div>
 
                     <div>
-                        <strong>{residents.length}</strong>
-                        <span>Registered residents</span>
+                        <strong>
+                            {
+                                residents.filter(
+                                    (resident) =>
+                                        activationStatusOf(resident) ===
+                                        "PENDING_ACTIVATION"
+                                ).length
+                            }
+                        </strong>
+                        <span>Pending activation</span>
                     </div>
                 </div>
             </div>
@@ -1222,6 +1229,7 @@ export default function ResidentsPage() {
                                 <th>Phone</th>
                                 <th>House</th>
                                 <th>Email</th>
+                                <th>Status</th>
                                 <th>Actions</th>
                             </tr>
                             </thead>
@@ -1270,6 +1278,19 @@ export default function ResidentsPage() {
                                     </td>
 
                                     <td>
+                                        <span
+                                            className={
+                                                "resident-status " +
+                                                activationStatusOf(resident).toLowerCase()
+                                            }
+                                        >
+                                            {STATUS_LABELS[
+                                                activationStatusOf(resident)
+                                            ] || activationStatusOf(resident)}
+                                        </span>
+                                    </td>
+
+                                    <td>
                                         <div className="resident-actions">
                                             <button
                                                 className="resident-action"
@@ -1283,19 +1304,19 @@ export default function ResidentsPage() {
 
                                             <button
                                                 className="resident-action"
-                                                title="Reset password"
+                                                title="Send activation link"
                                                 onClick={() =>
-                                                    handleResetPassword(resident)
+                                                    handleSendActivation(resident)
                                                 }
-                                                disabled={resettingId === resident.id}
+                                                disabled={sendingId === resident.id}
                                             >
-                                                {resettingId === resident.id ? (
+                                                {sendingId === resident.id ? (
                                                     <RefreshCw
                                                         size={15}
                                                         className="resident-refresh-spin"
                                                     />
                                                 ) : (
-                                                    <KeyRound size={15} />
+                                                    <Send size={15} />
                                                 )}
                                             </button>
 
@@ -1423,46 +1444,29 @@ export default function ResidentsPage() {
                                             </div>
 
                                             <div className="resident-account-note">
-                                                These credentials will be used
-                                                by the resident to log in to
-                                                EstateFlow.
+                                                No password is created and you
+                                                never share one. The resident
+                                                sets their own password with
+                                                “First time here? Create
+                                                password” on the login page,
+                                                using this estate code and the
+                                                email or phone number below.
                                             </div>
 
                                             <div className="resident-form-grid">
 
-                                                <div className="resident-field">
-                                                    <label>Username</label>
+                                                <div className="resident-field full">
+                                                    <label>
+                                                        Username (optional)
+                                                    </label>
 
                                                     <input
                                                         name="username"
                                                         value={form.username}
                                                         onChange={handleChange}
-                                                        placeholder="Enter username"
+                                                        placeholder="Leave blank to generate from name and house number"
                                                         autoComplete="off"
                                                     />
-                                                </div>
-
-                                                <div className="resident-field password-field">
-                                                    <label>Password</label>
-
-                                                    <input
-                                                        type={showResidentPassword ? "text" : "password"}
-                                                        name="password"
-                                                        value={form.password}
-                                                        onChange={handleChange}
-                                                        placeholder="Enter password"
-                                                        autoComplete="new-password"
-                                                        style={showResidentPassword ? { paddingRight: "42px" } : undefined}
-                                                    />
-
-                                                    <button
-                                                        type="button"
-                                                        className="resident-password-toggle"
-                                                        onClick={() => setShowResidentPassword((value) => !value)}
-                                                        aria-label={showResidentPassword ? "Hide password" : "Show password"}
-                                                    >
-                                                        {showResidentPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-                                                    </button>
                                                 </div>
 
                                             </div>

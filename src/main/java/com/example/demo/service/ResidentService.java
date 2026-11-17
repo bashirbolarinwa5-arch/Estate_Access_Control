@@ -7,7 +7,6 @@ import com.example.demo.entity.User;
 import com.example.demo.repository.ResidentRepository;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.response.BulkImportResult;
-import com.example.demo.response.PasswordResetResult;
 import com.example.demo.response.ResidentCreateRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -32,6 +31,7 @@ public class ResidentService {
     private final ActivityLogService activityLogService;
     private final CurrentUserService currentUserService;
     private final CredentialService credentialService;
+    private final PasswordResetService passwordResetService;
     private final TransactionTemplate transactionTemplate;
 
     public ResidentService(
@@ -41,6 +41,7 @@ public class ResidentService {
             ActivityLogService activityLogService,
             CurrentUserService currentUserService,
             CredentialService credentialService,
+            PasswordResetService passwordResetService,
             PlatformTransactionManager transactionManager) {
 
         this.repository = repository;
@@ -49,10 +50,19 @@ public class ResidentService {
         this.activityLogService = activityLogService;
         this.currentUserService = currentUserService;
         this.credentialService = credentialService;
+        this.passwordResetService = passwordResetService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     // CREATE RESIDENT + USER ACCOUNT
+    /*
+     * Administrators never choose or see a resident password.
+     *
+     * The account is created in the PENDING_ACTIVATION state: the stored
+     * password is the hash of a random value nobody knows, so there is no
+     * default, shared or temporary password to distribute. The resident
+     * sets the real password through the emailed activation link.
+     */
     public Resident createResident(ResidentCreateRequest request) {
 
         if (request.getFullName() == null ||
@@ -75,26 +85,31 @@ public class ResidentService {
             throw new RuntimeException("House number is required");
         }
 
+        Long estateId = currentUserService.getRequiredEstate().getId();
+
         /*
-         * Email is optional for imported residents. The column
-         * in the database is NOT NULL + UNIQUE, so a resident
-         * without one gets an internal placeholder derived from
-         * the (unique) username. The UI hides these addresses.
+         * Username is optional: when the spreadsheet has no username column
+         * (the normal case) one is derived from the name and house number.
          */
-        if (request.getUsername() == null ||
-                request.getUsername().isBlank()) {
+        String cleanUsername = request.getUsername() == null
+                ? ""
+                : request.getUsername().trim();
 
-            throw new RuntimeException("Username is required");
+        if (cleanUsername.isEmpty()) {
+            cleanUsername = credentialService.generateUsername(
+                    request.getFullName(),
+                    request.getHouseNumber()
+            );
         }
 
-        if (request.getPassword() == null ||
-                request.getPassword().isBlank()) {
+        request.setUsername(cleanUsername);
 
-            throw new RuntimeException("Password is required");
-        }
-
-        String cleanUsername = request.getUsername().trim();
-
+        /*
+         * Email is required by the database column, but a resident may not
+         * have one. Those rows get an internal placeholder derived from the
+         * unique username; the UI hides it and activation reports that no
+         * deliverable address exists.
+         */
         String cleanEmail = request.getEmail() == null
                 ? ""
                 : request.getEmail().trim();
@@ -106,7 +121,7 @@ public class ResidentService {
         }
 
         if (hasRealEmail && repository.existsByEstateIdAndEmail(
-                currentUserService.getRequiredEstate().getId(), cleanEmail)) {
+                estateId, cleanEmail)) {
 
             throw new RuntimeException("Email already exists");
         }
@@ -119,9 +134,15 @@ public class ResidentService {
 
         user.setUsername(cleanUsername);
 
-        user.setPassword(
-                passwordEncoder.encode(request.getPassword())
-        );
+        /*
+         * Unguessable, unknown to everybody, never returned or logged.
+         *
+         * A single UUID (122 random bits) stays well inside BCrypt's
+         * 72-byte input limit.
+         */
+        user.setPassword(passwordEncoder.encode(
+                java.util.UUID.randomUUID().toString()
+        ));
 
         user.setRole(
                 Role.ROLE_RESIDENT
@@ -135,6 +156,10 @@ public class ResidentService {
                 currentUserService.getRequiredEstate()
         );
 
+        user.setActive(true);
+        user.setMustChangePassword(false);
+        user.setPendingActivation(true);
+
         User savedUser = userRepository.save(user);
 
         Resident resident = new Resident();
@@ -143,7 +168,7 @@ public class ResidentService {
         resident.setPhoneNumber(request.getPhoneNumber().trim());
         resident.setHouseNumber(request.getHouseNumber().trim());
         resident.setEmail(cleanEmail);
-        resident.setEstateId(currentUserService.getRequiredEstate().getId());
+        resident.setEstateId(estateId);
 
         resident.setUser(savedUser);
 
@@ -153,13 +178,21 @@ public class ResidentService {
                 "ADMIN",
                 "RESIDENT_CREATED",
                 "Resident " + savedResident.getFullName()
-                        + " was created"
+                        + " was created (pending activation)"
         );
 
         return savedResident;
     }
 
     // BULK CREATE RESIDENTS (CSV / EXCEL IMPORT)
+    /*
+     * The sheet only needs Name, Flat/Unit, Phone and Email.
+     *
+     * A password column — if the file happens to have one — is ignored
+     * outright: no password from the file is ever stored, and no
+     * generated password is returned to the administrator. Every row
+     * lands in PENDING_ACTIVATION and the resident activates themself.
+     */
     public BulkImportResult createResidents(
             List<ResidentCreateRequest> requests) {
 
@@ -176,8 +209,10 @@ public class ResidentService {
             row.setFullName(request.getFullName());
             row.setHouseNumber(request.getHouseNumber());
 
+            /* Any password supplied by the spreadsheet is discarded. */
+            request.setPassword(null);
+
             String username = request.getUsername();
-            String generatedPassword = null;
 
             try {
 
@@ -191,35 +226,15 @@ public class ResidentService {
                     request.setUsername(username);
                 }
 
-                username = username.trim();
-                request.setUsername(username);
-
-                if (request.getPassword() == null ||
-                        request.getPassword().isBlank()) {
-
-                    generatedPassword =
-                            credentialService.generateTemporaryPassword();
-
-                    request.setPassword(generatedPassword);
-                }
-
-                boolean mustChangePassword = generatedPassword != null;
-
-                Resident created = transactionTemplate.execute(status -> {
-                    Resident importedResident = createResident(request);
-
-                    if (mustChangePassword) {
-                        User user = importedResident.getUser();
-                        user.setMustChangePassword(true);
-                        userRepository.save(user);
-                    }
-
-                    return importedResident;
-                });
+                Resident created = transactionTemplate.execute(
+                        status -> createResident(request));
 
                 row.setSuccess(true);
-                row.setUsername(username);
-                row.setTemporaryPassword(generatedPassword);
+                row.setUsername(
+                        created != null && created.getUser() != null
+                                ? created.getUser().getUsername()
+                                : username);
+                row.setActivationStatus("PENDING_ACTIVATION");
 
             } catch (RuntimeException ex) {
 
@@ -239,55 +254,37 @@ public class ResidentService {
     }
 
     /*
-     * Admin-triggered password reset.
-     *
-     * Generates a fresh temporary password, invalidates the
-     * previous one, and forces a change on next login.
+     * Admin "resend" action in the resident list. Sends the secure
+     * activation link to the address on the record; the admin never sees
+     * or handles a password.
      */
-    public PasswordResetResult resetPassword(Long id) {
+    public Map<String, Object> sendActivationLink(Long id) {
 
         Resident resident = repository.findById(id)
                 .orElseThrow(() ->
                         new RuntimeException("Resident not found")
                 );
 
-        currentUserService.verifySameEstate(
-                currentUserService.getRequiredEstate(),
-                resident.getUser() == null
-                        ? null
-                        : resident.getUser().getEstate()
-        );
-
-        User user = resident.getUser();
-
-        if (user == null) {
-            throw new RuntimeException(
-                    "This resident has no login account"
-            );
+        if (resident.getUser() == null) {
+            throw new RuntimeException("This resident has no login account");
         }
 
-        String temporaryPassword =
-                credentialService.generateTemporaryPassword();
-
-        user.setPassword(
-                passwordEncoder.encode(temporaryPassword)
+        currentUserService.verifySameEstate(
+                currentUserService.getRequiredEstate(),
+                resident.getUser().getEstate()
         );
 
-        user.setMustChangePassword(true);
-
-        userRepository.save(user);
+        Map<String, Object> result =
+                passwordResetService.sendActivationLink(resident);
 
         activityLogService.log(
                 "ADMIN",
-                "PASSWORD_RESET",
-                "Password reset for resident "
+                "ACTIVATION_LINK_REQUESTED",
+                "Activation link requested for resident "
                         + resident.getFullName()
         );
 
-        return new PasswordResetResult(
-                user.getUsername(),
-                temporaryPassword
-        );
+        return result;
     }
 
     // GET ALL RESIDENTS

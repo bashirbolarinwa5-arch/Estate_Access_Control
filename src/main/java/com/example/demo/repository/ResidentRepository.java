@@ -20,6 +20,14 @@ public interface ResidentRepository extends JpaRepository<Resident, Long> {
 
     Optional<Resident> findByEstateIdAndEmail(Long estateId, String email);
 
+    /*
+     * Activation can be triggered with the phone number on record. Phone
+     * numbers are not unique, so this picks the oldest match inside the
+     * estate and never crosses an estate boundary.
+     */
+    Optional<Resident> findFirstByEstateIdAndPhoneNumberOrderByIdAsc(
+            Long estateId, String phoneNumber);
+
     List<Resident> findByFullNameContainingIgnoreCase(String fullName);
 
     List<Resident> findByHouseNumberContainingIgnoreCase(String houseNumber);

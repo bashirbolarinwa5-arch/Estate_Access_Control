@@ -3,7 +3,6 @@ package com.example.demo.controller;
 import com.example.demo.entity.Resident;
 import com.example.demo.response.ApiResponse;
 import com.example.demo.response.BulkImportResult;
-import com.example.demo.response.PasswordResetResult;
 import com.example.demo.response.ResidentCreateRequest;
 import com.example.demo.response.ResidentDirectoryEntry;
 import com.example.demo.service.ResidentService;
@@ -58,18 +57,20 @@ public class ResidentController {
         );
     }
 
-    // RESET A RESIDENT'S PASSWORD (ADMIN)
-    @PostMapping("/{id}/reset-password")
-    public ApiResponse<PasswordResetResult> resetPassword(
+    // RESEND THE ACTIVATION EMAIL (ADMIN)
+    /*
+     * The admin never sees or shares a password. This simply asks the
+     * server to re-send the single-use activation link to the resident's
+     * address on record.
+     */
+    @PostMapping("/{id}/send-activation")
+    public ApiResponse<java.util.Map<String, Object>> sendActivation(
             @PathVariable Long id) {
-
-        PasswordResetResult result =
-                residentService.resetPassword(id);
 
         return new ApiResponse<>(
                 true,
-                "Password reset successfully",
-                result
+                "Activation email processed",
+                residentService.sendActivationLink(id)
         );
     }
 

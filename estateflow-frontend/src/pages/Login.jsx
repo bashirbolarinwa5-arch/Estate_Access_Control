@@ -23,39 +23,68 @@ function Login() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
-    const [forgotEmail, setForgotEmail] = useState("");
-    const [forgotEstateCode, setForgotEstateCode] = useState("");
+    /*
+     * One shared form serves three modes:
+     *
+     *   login     username + password
+     *   activate  estate code + email/phone  -> "Set your EstateFlow password"
+     *   forgot    estate code + email/phone  -> "Reset your EstateFlow password"
+     *
+     * Activation and reset both use the same single-use emailed link;
+     * only the wording of the email differs.
+     */
+    const [mode, setMode] = useState("login"); // login | activate | forgot
+    const [accountIdentifier, setAccountIdentifier] = useState("");
+    const [estateCode, setEstateCode] = useState("");
     const [message, setMessage] = useState("");
-    const [mode, setMode] = useState("login"); // login | forgot
 
     const navigate = useNavigate();
     const { loginUser } = useAuth();
+
+    const isAccountMode = mode === "activate" || mode === "forgot";
 
     const handleSubmit = async (event) => {
         event.preventDefault();
 
         setError("");
-        setLoading(true);
 
-        try {
-            if (mode === "forgot") {
+        if (isAccountMode) {
+            setLoading(true);
+
+            try {
                 const response = await forgotPassword({
-                    email: forgotEmail,
-                    estateCode: forgotEstateCode.trim().toUpperCase(),
+                    identifier: accountIdentifier.trim(),
+                    estateCode: estateCode.trim().toUpperCase(),
+                    purpose: mode === "activate" ? "ACTIVATION" : "RESET",
                 });
 
                 /*
                  * The server never returns the token — it only goes out by
-                 * email. The UI shows the same generic message for every
-                 * address so the form cannot be used to enumerate accounts.
+                 * email. The same generic sentence is returned for every
+                 * address, so this form cannot be used to discover accounts.
                  */
                 setMessage(
                     response?.message ||
-                    "If this email exists for the estate, a password reset link has been sent."
+                    (mode === "activate"
+                        ? "If an account exists, an activation link has been sent."
+                        : "If this email exists for the estate, a password reset link has been sent.")
                 );
-                return;
+            } catch (err) {
+                setError(
+                    err.response?.data?.message ||
+                    err.message ||
+                    "Could not process the request. Please try again."
+                );
+            } finally {
+                setLoading(false);
             }
 
+            return;
+        }
+
+        setLoading(true);
+
+        try {
             const authData = await login(username, password);
 
             /*
@@ -71,10 +100,6 @@ function Login() {
              * The platform owner works from the super admin
              * dashboard; estate roles land on the shared
              * dashboard, which renders per role.
-             *
-             * Accounts created through the bulk import (or
-             * reset by an admin) arrive with mustChangePassword
-             * and are sent to the change-password screen first.
              */
             if (authData?.mustChangePassword) {
                 navigate("/account/password");
@@ -98,6 +123,12 @@ function Login() {
             setLoading(false);
         }
     };
+
+    function openMode(nextMode) {
+        setMode(nextMode);
+        setError("");
+        setMessage("");
+    }
 
     return (
         <div className="login-page" role="main">
@@ -149,13 +180,18 @@ function Login() {
                                 </div>
 
                                 <h2>
-                                    {mode === "forgot" ? "Forgot password" : "Welcome back"}
+                                    {mode === "login" && "Welcome back"}
+                                    {mode === "activate" && "Create your password"}
+                                    {mode === "forgot" && "Forgot password"}
                                 </h2>
 
                                 <p>
-                                    {mode === "forgot"
-                                        ? "We'll email you a secure reset link"
-                                        : "Sign in to your EstateFlow account"}
+                                    {mode === "login" &&
+                                        "Sign in to your EstateFlow account"}
+                                    {mode === "activate" &&
+                                        "We'll email you a secure link to set your password"}
+                                    {mode === "forgot" &&
+                                        "We'll email you a secure reset link"}
                                 </p>
 
                             </div>
@@ -248,13 +284,13 @@ function Login() {
                                 )}
 
 
-                                {mode === "forgot" && (
+                                {isAccountMode && (
 
                                 <>
 
                                 <div className="login-field">
 
-                                    <label htmlFor="forgot-estate-code">
+                                    <label htmlFor="estate-code">
                                         Estate code
                                     </label>
 
@@ -263,11 +299,11 @@ function Login() {
                                         <ShieldCheck size={19} className="login-input-icon" />
 
                                         <input
-                                            id="forgot-estate-code"
+                                            id="estate-code"
                                             type="text"
-                                            value={forgotEstateCode}
-                                            onChange={(event) => setForgotEstateCode(event.target.value)}
-                                            placeholder="e.g. EST001"
+                                            value={estateCode}
+                                            onChange={(event) => setEstateCode(event.target.value)}
+                                            placeholder="e.g. DEMO01"
                                             autoComplete="off"
                                             disabled={loading}
                                             required
@@ -279,8 +315,8 @@ function Login() {
 
                                 <div className="login-field">
 
-                                    <label htmlFor="forgot-email">
-                                        Email
+                                    <label htmlFor="account-identifier">
+                                        Email or phone
                                     </label>
 
                                     <div className="login-input-wrapper">
@@ -288,12 +324,13 @@ function Login() {
                                         <Mail size={19} className="login-input-icon" />
 
                                         <input
-                                            id="forgot-email"
-                                            type="email"
-                                            value={forgotEmail}
-                                            onChange={(event) => setForgotEmail(event.target.value)}
-                                            placeholder="Enter your email"
-                                            autoComplete="email"
+                                            id="account-identifier"
+                                            type="text"
+                                            value={accountIdentifier}
+                                            onChange={(event) => setAccountIdentifier(event.target.value)}
+                                            placeholder="you@email.com or 08012345678"
+                                            autoComplete="off"
+                                            spellCheck={false}
                                             disabled={loading}
                                             required
                                         />
@@ -331,7 +368,16 @@ function Login() {
                                     disabled={loading}
                                 >
 
-                                    {mode === "forgot" ? (
+                                    {mode === "activate" ? (
+                                        loading ? (
+                                            <>
+                                                <span className="login-spinner"></span>
+                                                Sending activation...
+                                            </>
+                                        ) : (
+                                            "Send activation link"
+                                        )
+                                    ) : mode === "forgot" ? (
                                         loading ? (
                                             <>
                                                 <span className="login-spinner"></span>
@@ -361,11 +407,22 @@ function Login() {
                                     <button
                                         type="button"
                                         className="login-forgot-link"
-                                        onClick={() => {
-                                            setMode("forgot");
-                                            setError("");
-                                            setMessage("");
-                                        }}
+                                        onClick={() => openMode("activate")}
+                                    >
+                                        First time here? Create password
+                                    </button>
+
+                                </div>
+                            )}
+
+                            {mode === "login" && (
+
+                                <div className="login-forgot-row">
+
+                                    <button
+                                        type="button"
+                                        className="login-forgot-link secondary"
+                                        onClick={() => openMode("forgot")}
                                     >
                                         Forgot Password?
                                     </button>
@@ -373,18 +430,14 @@ function Login() {
                                 </div>
                             )}
 
-                            {mode === "forgot" && (
+                            {isAccountMode && (
 
                                 <div className="login-forgot-row">
 
                                     <button
                                         type="button"
                                         className="login-forgot-link"
-                                        onClick={() => {
-                                            setMode("login");
-                                            setError("");
-                                            setMessage("");
-                                        }}
+                                        onClick={() => openMode("login")}
                                     >
                                         Back to sign in
                                     </button>
@@ -425,4 +478,3 @@ function Login() {
 }
 
 export default Login;
-

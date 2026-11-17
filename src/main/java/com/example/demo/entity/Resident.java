@@ -50,4 +50,29 @@ public class Resident {
      */
     @Column(nullable = false)
     private String email;
+
+
+    /*
+     * Read-only view of the linked account's activation state, used by the
+     * admin resident list. Nothing is stored here — the single source of
+     * truth stays on the User row.
+     *
+     *   PENDING_ACTIVATION  no password chosen yet; login is blocked
+     *   ACTIVE              the resident has set a password
+     *   DISABLED            an administrator disabled the account
+     *   NO_ACCOUNT          legacy row without a login account
+     */
+    @jakarta.persistence.Transient
+    public String getActivationStatus() {
+
+        if (user == null) {
+            return "NO_ACCOUNT";
+        }
+
+        if (Boolean.TRUE.equals(user.getPendingActivation())) {
+            return "PENDING_ACTIVATION";
+        }
+
+        return Boolean.TRUE.equals(user.getActive()) ? "ACTIVE" : "DISABLED";
+    }
 }

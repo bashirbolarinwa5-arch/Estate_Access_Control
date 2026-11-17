@@ -64,13 +64,13 @@ const FIELD_SETS = {
             required: false,
             aliases: ["username", "user name", "login", "login id", "user id"],
         },
-        {
-            key: "password",
-            label: "Password",
-            required: false,
-            aliases: ["password", "pass", "temp password", "temporary password"],
-        },
     ],
+    /*
+     * Residents never get a password column. If the sheet contains one it
+     * is simply not mapped — no password is read, stored or returned.
+     * Security personnel keep password mapping because guards have no
+     * self-service onboarding.
+     */
     security: [
         {
             key: "name",
@@ -288,6 +288,8 @@ function BulkImportModal({
 }) {
     const fields = FIELD_SETS[kind] || FIELD_SETS.resident;
 
+    const isResident = kind === "resident";
+
     const { showSuccess, showError } = useToast();
 
     const fileInputRef = useRef(null);
@@ -305,6 +307,7 @@ function BulkImportModal({
     const [failures, setFailures] = useState([]);
     const [credentials, setCredentials] = useState([]);
     const [createdCount, setCreatedCount] = useState(0);
+    const [pendingActivationCount, setPendingActivationCount] = useState(0);
 
     useEffect(() => {
         if (!open) return;
@@ -494,7 +497,9 @@ function BulkImportModal({
             if (field.key === "name") return "Tunde Bakare";
             if (field.key === "phoneNumber") return "08012345678";
             if (field.key === "houseNumber") return "12B";
-            if (field.key === "email") return "adaeze@example.com";
+            if (field.key === "email") {
+                return isResident ? "adaeze@yourmail.com" : "adaeze@example.com";
+            }
             return "";
         });
 
@@ -527,9 +532,11 @@ function BulkImportModal({
         );
         setCredentials([]);
         setCreatedCount(0);
+        setPendingActivationCount(0);
         setProgress({ done: 0, total: preview.ready.length });
 
         let created = 0;
+        let pendingActivation = 0;
         const collectedFailures = preview.problems.map((row) => ({
             row: row.rowNumber,
             label: row.label,
@@ -565,19 +572,27 @@ function BulkImportModal({
                     if (result.success) {
                         created++;
 
-                        collectedCredentials.push({
-                            name:
-                                source.item.fullName ||
-                                source.item.name ||
-                                "",
-                            houseNumber: source.item.houseNumber || "",
-                            phoneNumber: source.item.phoneNumber || "",
-                            username: result.username || source.item.username,
-                            password:
-                                result.temporaryPassword ||
-                                source.item.password || "",
-                            mustChangePassword: Boolean(result.temporaryPassword),
-                        });
+                        /*
+                         * Residents never receive a password — not from the
+                         * sheet, not generated. They activate themselves.
+                         */
+                        if (isResident) {
+                            pendingActivation++;
+                        } else {
+                            collectedCredentials.push({
+                                name:
+                                    source.item.fullName ||
+                                    source.item.name ||
+                                    "",
+                                houseNumber: source.item.houseNumber || "",
+                                phoneNumber: source.item.phoneNumber || "",
+                                username: result.username || source.item.username,
+                                password:
+                                    result.temporaryPassword ||
+                                    source.item.password || "",
+                                mustChangePassword: Boolean(result.temporaryPassword),
+                            });
+                        }
                     } else {
                         collectedFailures.push({
                             row: source.rowNumber,
@@ -635,6 +650,7 @@ function BulkImportModal({
         }
 
         setCreatedCount(created);
+        setPendingActivationCount(pendingActivation);
         setCredentials(collectedCredentials);
         setFailures(collectedFailures);
         setImporting(false);
@@ -642,11 +658,13 @@ function BulkImportModal({
 
         if (created > 0) {
             showSuccess(
-                `${created} account${created === 1 ? "" : "s"} created.`
+                isResident
+                    ? `${created} resident${created === 1 ? "" : "s"} created — ${pendingActivation} need activation.`
+                    : `${created} account${created === 1 ? "" : "s"} created.`
             );
 
             if (typeof onCreated === "function") {
-                onCreated(created);
+                onCreated({ created, pendingActivation });
             }
         }
 
@@ -821,12 +839,27 @@ function BulkImportModal({
 
                             <div className="import-help">
                                 <p>
-                                    <strong>Passwords:</strong> leave the
-                                    password column out and the system
-                                    generates a temporary password for each
-                                    account. Every generated password must be
-                                    changed at first login. If your sheet has a
-                                    password column it is used as-is.
+                                    {isResident ? (
+                                        <>
+                                            <strong>No passwords needed.</strong>{" "}
+                                            The sheet only needs name, flat,
+                                            phone and email. Each resident sets
+                                            their own password the first time
+                                            they open EstateFlow — you never
+                                            create or share one. A password
+                                            column, if present, is ignored.
+                                        </>
+                                    ) : (
+                                        <>
+                                            <strong>Passwords:</strong> leave
+                                            the password column out and the
+                                            system generates a temporary
+                                            password for each account. Every
+                                            generated password must be changed
+                                            at first login. If your sheet has a
+                                            password column it is used as-is.
+                                        </>
+                                    )}
                                 </p>
 
                                 <button
@@ -1059,8 +1092,11 @@ function BulkImportModal({
 
                                 <div>
                                     <strong>
-                                        {createdCount} account
-                                        {createdCount === 1 ? "" : "s"} created
+                                        {createdCount}{" "}
+                                        {isResident
+                                            ? `resident${createdCount === 1 ? "" : "s"}`
+                                            : `account${createdCount === 1 ? "" : "s"}`}{" "}
+                                        created
                                     </strong>
 
                                     <span>
@@ -1070,6 +1106,34 @@ function BulkImportModal({
                                     </span>
                                 </div>
                             </div>
+
+                            {isResident && createdCount > 0 && (
+                                <div className="import-activation">
+                                    <strong>
+                                        {pendingActivationCount} resident
+                                        {pendingActivationCount === 1 ? "" : "s"}{" "}
+                                        need activation
+                                    </strong>
+
+                                    <p>
+                                        You do not need to share passwords —
+                                        none were created. Each resident opens
+                                        EstateFlow, taps{" "}
+                                        <b>“First time here? Create password”</b>{" "}
+                                        and uses the estate code with the email
+                                        or phone number on their record.
+                                    </p>
+
+                                    <p>
+                                        Residents without a real email address
+                                        (or with an <code>@example.com</code>{" "}
+                                        address) cannot be emailed. Update their
+                                        email, then use{" "}
+                                        <b>Send activation link</b> in the
+                                        resident list.
+                                    </p>
+                                </div>
+                            )}
 
                             {credentials.length > 0 && (
                                 <div className="import-result-block">
@@ -1618,6 +1682,38 @@ const importStyles = `
 .import-done div { display: flex; flex-direction: column; gap: 2px; }
 .import-done strong { font-size: 14px; color: #14532d; }
 .import-done span { font-size: 12px; color: #3f6212; }
+
+/* Imported residents have no password to hand out — this block
+   explains the self-service activation instead. */
+.import-activation {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 13px 14px;
+    border: 1px solid #dbeafe;
+    border-radius: 12px;
+    background: #f5f9ff;
+}
+
+.import-activation strong {
+    font-size: 13px;
+    color: #1d4ed8;
+}
+
+.import-activation p {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.55;
+    color: #475569;
+}
+
+.import-activation code {
+    font-size: 11.5px;
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: #e2e8f0;
+    color: #334155;
+}
 
 .import-result-block {
     display: flex;

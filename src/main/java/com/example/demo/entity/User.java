@@ -64,6 +64,23 @@ public class User {
 
 
     /*
+     * True for accounts that were provisioned by an administrator
+     * (CSV import, manual create, offline sync) but whose owner has
+     * not chosen a password yet.
+     *
+     * Such an account stores an unguessable random hash that nobody
+     * knows — there is no shared, default or temporary password.
+     * Login is blocked with an explicit "not activated" message
+     * until the resident sets a password through the emailed link.
+     *
+     * The column default keeps every existing account unaffected
+     * when the column is added to a populated database.
+     */
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private Boolean pendingActivation = false;
+
+
+    /*
      * The estate this account operates in.
      *
      * NULL means the account belongs to the platform,

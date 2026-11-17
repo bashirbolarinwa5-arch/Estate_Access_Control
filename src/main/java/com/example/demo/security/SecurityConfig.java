@@ -108,7 +108,7 @@ public class SecurityConfig {
 
                         .requestMatchers(
                                 HttpMethod.POST,
-                                "/resident/*/reset-password"
+                                "/resident/*/send-activation"
                         )
                         .hasRole("ADMIN")
 

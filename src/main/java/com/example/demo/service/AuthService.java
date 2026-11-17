@@ -136,6 +136,17 @@ public class AuthService {
                 .orElseThrow(() ->
                         new RuntimeException("Invalid username or password"));
 
+        /*
+         * Provisioned accounts have no usable password — the stored hash is
+         * of a random value nobody knows. Say so explicitly instead of the
+         * generic credential error, so the resident knows to use the
+         * self-service activation link.
+         */
+        if (Boolean.TRUE.equals(user.getPendingActivation())) {
+            throw new RuntimeException(
+                    "Account not activated yet. Click \"First time? Create password\" to set your password.");
+        }
+
         if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new RuntimeException("Invalid username or password");
         }
