@@ -21,9 +21,20 @@ public interface ResidentRepository extends JpaRepository<Resident, Long> {
     Optional<Resident> findByEstateIdAndEmail(Long estateId, String email);
 
     /*
-     * Activation can be triggered with the phone number on record. Phone
-     * numbers are not unique, so this picks the oldest match inside the
-     * estate and never crosses an estate boundary.
+     * Phone numbers are unique per estate (see PhoneDirectoryGuard and the
+     * ux_resident_estate_phone index). A phone number is a login
+     * identifier, so the same number cannot belong to two residents.
+     */
+    boolean existsByEstateIdAndPhoneNumber(Long estateId, String phoneNumber);
+
+    boolean existsByEstateIdAndPhoneNumberAndIdNot(
+            Long estateId, String phoneNumber, Long id);
+
+    /*
+     * Activation can be triggered with the phone number on record. The
+     * number is unique for accounts created since V8, but older rows may
+     * still share one; the oldest match wins and never crosses an estate
+     * boundary.
      */
     Optional<Resident> findFirstByEstateIdAndPhoneNumberOrderByIdAsc(
             Long estateId, String phoneNumber);

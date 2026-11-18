@@ -32,6 +32,7 @@ public class ResidentService {
     private final CurrentUserService currentUserService;
     private final CredentialService credentialService;
     private final PasswordResetService passwordResetService;
+    private final PhoneDirectoryGuard phoneDirectoryGuard;
     private final TransactionTemplate transactionTemplate;
 
     public ResidentService(
@@ -42,6 +43,7 @@ public class ResidentService {
             CurrentUserService currentUserService,
             CredentialService credentialService,
             PasswordResetService passwordResetService,
+            PhoneDirectoryGuard phoneDirectoryGuard,
             PlatformTransactionManager transactionManager) {
 
         this.repository = repository;
@@ -51,6 +53,7 @@ public class ResidentService {
         this.currentUserService = currentUserService;
         this.credentialService = credentialService;
         this.passwordResetService = passwordResetService;
+        this.phoneDirectoryGuard = phoneDirectoryGuard;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -86,6 +89,18 @@ public class ResidentService {
         }
 
         Long estateId = currentUserService.getRequiredEstate().getId();
+
+        /*
+         * A phone number is a login identifier, so it can belong to only
+         * one account in the estate. The resident is deliberately not
+         * created when the number is already taken.
+         */
+        phoneDirectoryGuard.assertAvailable(
+                estateId,
+                request.getPhoneNumber(),
+                null,
+                null
+        );
 
         /*
          * Username is optional: when the spreadsheet has no username column
@@ -409,6 +424,17 @@ public class ResidentService {
                 existingResident.getUser() == null
                         ? null
                         : existingResident.getUser().getEstate()
+        );
+
+        /*
+         * Excludes the row being edited, so saving an unchanged record is
+         * still allowed while another resident's number is rejected.
+         */
+        phoneDirectoryGuard.assertAvailable(
+                existingResident.getEstateId(),
+                resident.getPhoneNumber(),
+                existingResident.getId(),
+                null
         );
 
         if (resident.getEmail() == null ||

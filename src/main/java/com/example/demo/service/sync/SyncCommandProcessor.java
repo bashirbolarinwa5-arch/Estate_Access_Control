@@ -4,6 +4,7 @@ import com.example.demo.entity.*;
 import com.example.demo.repository.*;
 import com.example.demo.response.SyncCommandDto;
 import com.example.demo.service.ActivityLogService;
+import com.example.demo.service.PhoneDirectoryGuard;
 import com.example.demo.service.VisitNotificationService;
 import com.example.demo.service.VisitService;
 import com.example.demo.service.VisitorService;
@@ -35,6 +36,7 @@ public class SyncCommandProcessor {
     private final GateEntryRepository gateEntries;
     private final SyncCommandReceiptRepository receiptRepository;
     private final VisitNotificationService visitNotificationService;
+    private final PhoneDirectoryGuard phoneDirectoryGuard;
 
     public SyncCommandProcessor(
             ResidentRepository residents,
@@ -49,7 +51,8 @@ public class SyncCommandProcessor {
             ActivityLogRepository activityLogs,
             GateEntryRepository gateEntries,
             SyncCommandReceiptRepository receiptRepository,
-            VisitNotificationService visitNotificationService) {
+            VisitNotificationService visitNotificationService,
+            PhoneDirectoryGuard phoneDirectoryGuard) {
         this.residents = residents;
         this.visitors = visitors;
         this.visits = visits;
@@ -63,6 +66,7 @@ public class SyncCommandProcessor {
         this.gateEntries = gateEntries;
         this.receiptRepository = receiptRepository;
         this.visitNotificationService = visitNotificationService;
+        this.phoneDirectoryGuard = phoneDirectoryGuard;
     }
 
     public ProcessedCommand process(User actor, SyncCommandDto command, UUID entityPublicId) {
@@ -103,6 +107,12 @@ public class SyncCommandProcessor {
         if (email.isBlank()) email = username + "@estateflow.local";
         if (users.existsByUsername(username)) throw rejected("Username already exists.");
         if (residents.existsByEstateIdAndEmail(estate.getId(), email)) throw rejected("Email already exists.");
+        if (residents.existsByEstateIdAndPhoneNumber(estate.getId(), phone)) {
+            throw rejected("Phone number " + phone + " already belongs to another account in this estate.");
+        }
+        if (securityPeople.existsByPhoneNumberAndUserEstateId(phone, estate.getId())) {
+            throw rejected("Phone number " + phone + " already belongs to another account in this estate.");
+        }
 
         User account = new User();
         account.setPublicId(optionalUuid(payload, "userPublicId").orElseGet(UUID::randomUUID));
@@ -146,6 +156,12 @@ public class SyncCommandProcessor {
         String email = optionalText(payload, "email", 200);
         String shift = optionalText(payload, "shift", 120);
         if (users.existsByUsername(username)) throw rejected("Username already exists.");
+        if (securityPeople.existsByPhoneNumberAndUserEstateId(phone, estate.getId())) {
+            throw rejected("Phone number " + phone + " already belongs to another account in this estate.");
+        }
+        if (residents.existsByEstateIdAndPhoneNumber(estate.getId(), phone)) {
+            throw rejected("Phone number " + phone + " already belongs to another account in this estate.");
+        }
 
         User account = new User();
         account.setPublicId(optionalUuid(payload, "userPublicId").orElseGet(UUID::randomUUID));

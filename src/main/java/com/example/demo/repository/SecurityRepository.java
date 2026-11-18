@@ -20,11 +20,23 @@ public interface SecurityRepository extends JpaRepository<Security, Long> {
      * login account (security.user_id -> users.estate_id), so an email or
      * phone number can never reach a security officer in another estate.
      *
-     * Phone numbers are not unique, so the oldest match wins.
+     * Phone numbers are unique per estate for accounts created since V8;
+     * older rows may still share one, so the oldest match wins.
      */
     Optional<Security> findFirstByEmailIgnoreCaseAndUserEstateId(
             String email, Long estateId);
 
     Optional<Security> findFirstByPhoneNumberAndUserEstateIdOrderByIdAsc(
             String phoneNumber, Long estateId);
+
+    /*
+     * Phone uniqueness helpers used by PhoneDirectoryGuard. A security
+     * officer's number must not collide with another officer or with a
+     * resident in the same estate.
+     */
+    boolean existsByPhoneNumberAndUserEstateId(
+            String phoneNumber, Long estateId);
+
+    boolean existsByPhoneNumberAndUserEstateIdAndIdNot(
+            String phoneNumber, Long estateId, Long id);
 }

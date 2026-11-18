@@ -349,7 +349,10 @@ export default function ResidentsPage() {
                 setSuccess("");
             }, 600);
         } catch (err) {
-            const message = err.message || "Unable to save resident.";
+            const message =
+                err.response?.data?.message ||
+                err.message ||
+                "Unable to save resident.";
 
             showError(message);
             setError(message);

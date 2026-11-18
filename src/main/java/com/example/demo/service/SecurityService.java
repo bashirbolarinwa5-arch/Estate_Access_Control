@@ -28,6 +28,7 @@ public class SecurityService {
     private final CredentialService credentialService;
     private final PasswordResetService passwordResetService;
     private final ActivityLogService activityLogService;
+    private final PhoneDirectoryGuard phoneDirectoryGuard;
     private final TransactionTemplate transactionTemplate;
 
     public SecurityService(
@@ -39,6 +40,7 @@ public class SecurityService {
             CredentialService credentialService,
             PasswordResetService passwordResetService,
             ActivityLogService activityLogService,
+            PhoneDirectoryGuard phoneDirectoryGuard,
             PlatformTransactionManager transactionManager) {
 
         this.securityRepository = securityRepository;
@@ -49,6 +51,7 @@ public class SecurityService {
         this.credentialService = credentialService;
         this.passwordResetService = passwordResetService;
         this.activityLogService = activityLogService;
+        this.phoneDirectoryGuard = phoneDirectoryGuard;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -71,6 +74,19 @@ public class SecurityService {
         if (security.getName() == null || security.getName().isBlank()) {
             throw new RuntimeException("Name is required");
         }
+
+        Estate estate = currentUserService.getRequiredEstate();
+
+        /*
+         * The number is a login identifier, so it cannot already belong to
+         * a resident or another officer in this estate.
+         */
+        phoneDirectoryGuard.assertAvailable(
+                estate.getId(),
+                security.getPhoneNumber(),
+                null,
+                null
+        );
 
         /*
          * Username is optional: when the spreadsheet has no username
@@ -132,7 +148,7 @@ public class SecurityService {
          * in the admin's estate.
          */
         user.setEstate(
-                currentUserService.getRequiredEstate()
+                estate
         );
 
         user.setActive(true);
@@ -337,6 +353,19 @@ public class SecurityService {
                 existingSecurity.getUser() == null
                         ? null
                         : existingSecurity.getUser().getEstate()
+        );
+
+        /*
+         * Excludes the officer being edited so an unchanged save still
+         * works, while another account's number is rejected.
+         */
+        phoneDirectoryGuard.assertAvailable(
+                existingSecurity.getUser() == null
+                        ? null
+                        : existingSecurity.getUser().getEstate().getId(),
+                updatedSecurity.getPhoneNumber(),
+                null,
+                existingSecurity.getId()
         );
 
         existingSecurity.setName(
